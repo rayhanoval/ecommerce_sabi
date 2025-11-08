@@ -1,0 +1,48 @@
+name: ecommerce_sabi
+description: "Ecommerce with supabase"
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  supabase_flutter: ^2.0.0
+  flutter_riverpod: ^3.0.3
+  cached_network_image: ^3.2.3
+  intl: ^0.20.2
+  go_router: ^16.3.0
+  flutter_secure_storage: ^9.2.4
+  dio: ^5.0.0
+  google_fonts: ^4.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/products.json
+    - assets/images/sb_symbol.png
+    - assets/images/button.png
+    - assets/images/sabi_putih.png
+    - assets/images/login_button.png
+    - assets/images/register_button.png
+    - assets/images/sabi_login.png
+    - assets/images/product.png
+    - assets/images/sabi_catalog.png
+    - assets/fonts/Montserrat-Black.ttf
+    - assets/fonts/Montserrat-BlackItalic.ttf
+    - assets/fonts/Montserrat-Bold.ttf
+    - assets/fonts/Montserrat-BoldItalic.ttf
+    - assets/fonts/Montserrat-ExtraBold.ttf
+    - assets/fonts/Montserrat-ExtraBoldItalic.ttf
+    - assets/fonts/Montserrat-ExtraLight.ttf
+    - assets/fonts/Montserrat-ExtraLightItalic.ttf
+    - assets/fonts/Montserrat-Italic-VariableFont_wght.ttf
+    - assets/fonts/Montserrat-Italic-VariableFont_wght.ttf
