@@ -60,7 +60,7 @@ class SplashPage extends StatelessWidget {
             // ===== Tombol Start Exploring =====
             IconButton(
               icon: Image.asset(
-                'assets/images/button.png',
+                'assets/images/start_exploring_button.png',
                 width: screenWidth * 0.7,
                 height: screenHeight * 0.15,
               ),
