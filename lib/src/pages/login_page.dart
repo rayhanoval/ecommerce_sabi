@@ -1,8 +1,7 @@
+import 'package:ecommerce_sabi/src/pages/product_list_page.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import 'register_page.dart';
-import 'product_list_page.dart'; // ganti sesuai page utama app kamu
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,6 +15,10 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
+
+  // 👇 Tambahan variabel buat nampung error spesifik
+  String? _emailError;
+  String? _passwordError;
 
   @override
   void dispose() {
@@ -39,55 +42,41 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _login() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() {
+      _loading = true;
+      _emailError = null;
+      _passwordError = null;
+    });
 
-    setState(() => _loading = true);
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
     try {
-      final res = await Supabase.instance.client.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-
+      final success = await AuthService.login(email, password);
       setState(() => _loading = false);
 
-      if (res.session != null) {
+      if (success) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ProductListPage()),
         );
-      } else {
-        messenger.showSnackBar(
-          const SnackBar(
-            content:
-                Text('Login gagal — cek email/password atau konfirmasi email.'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 3),
-          ),
-        );
       }
     } on AuthException catch (e) {
-      setState(() => _loading = false);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Login gagal — ${e.message}'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      setState(() {
+        _loading = false;
+
+        // 👇 Tampilkan error tepat di bawah field sesuai jenisnya
+        if (e.code == 'USER_NOT_FOUND') {
+          _emailError = 'Email belum terdaftar';
+        } else if (e.code == 'WRONG_CREDENTIALS') {
+          _passwordError = 'Password salah';
+        } else {
+          _passwordError = 'Terjadi kesalahan, coba lagi';
+        }
+      });
     } catch (e) {
       setState(() => _loading = false);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Login gagal — ${e.toString()}'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      _passwordError = 'Terjadi kesalahan tak terduga';
     }
   }
 
@@ -116,6 +105,7 @@ class _LoginPageState extends State<LoginPage> {
                     Form(
                       key: _formKey,
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           TextFormField(
                             controller: _emailController,
@@ -135,7 +125,20 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             validator: _emailValidator,
                           ),
+                          // 👇 tampilkan error di bawah textfield
+                          if (_emailError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, left: 4),
+                              child: Text(
+                                _emailError!,
+                                style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
                           SizedBox(height: s.height * 0.025),
+
                           TextFormField(
                             controller: _passwordController,
                             style: const TextStyle(color: Colors.white),
@@ -154,13 +157,24 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             validator: _passwordValidator,
                           ),
+                          // 👇 tampilkan error password di bawah textfield
+                          if (_passwordError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, left: 4),
+                              child: Text(
+                                _passwordError!,
+                                style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
                           SizedBox(height: s.height * 0.02),
+
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
-                              onPressed: () {
-                                // TODO: implement forgot password flow
-                              },
+                              onPressed: () {},
                               style: TextButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 minimumSize: const Size(40, 20),
@@ -183,9 +197,8 @@ class _LoginPageState extends State<LoginPage> {
                         ? SizedBox(
                             height: s.height * 0.08,
                             child: const Center(
-                              child: CircularProgressIndicator(
-                                  color: Colors.white),
-                            ),
+                                child: CircularProgressIndicator(
+                                    color: Colors.white)),
                           )
                         : GestureDetector(
                             onTap: _login,
@@ -228,6 +241,15 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ],
                 ),
+              ),
+            ),
+            Positioned(
+              top: s.height * 0.02,
+              left: s.width * 0.02,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new,
+                    color: Colors.white, size: 22),
+                onPressed: () => Navigator.pop(context),
               ),
             ),
           ],

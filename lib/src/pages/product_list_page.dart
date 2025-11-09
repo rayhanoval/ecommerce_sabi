@@ -1,3 +1,4 @@
+// lib/pages/product_list_page.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
@@ -33,7 +34,7 @@ class _ProductListPageState extends State<ProductListPage> {
       statusBarIconBrightness: Brightness.light,
     ));
 
-    // Listen perubahan auth
+    // Listen perubahan auth (login/logout)
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final event = data.event;
       if (event == AuthChangeEvent.signedIn) {
@@ -171,9 +172,9 @@ class _ProductListPageState extends State<ProductListPage> {
             ),
           if (isLoggedIn) ...[
             IconButton(
-              onPressed: () {
-                // contoh: sign out
-                Supabase.instance.client.auth.signOut();
+              onPressed: () async {
+                await Supabase.instance.client.auth.signOut();
+                setState(() => isLoggedIn = false);
               },
               icon: const Icon(Icons.logout_outlined),
               color: Colors.white70,

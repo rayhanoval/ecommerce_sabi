@@ -1,5 +1,14 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+class AuthException implements Exception {
+  final String code;
+  final String message;
+  AuthException(this.code, this.message);
+
+  @override
+  String toString() => 'AuthException($code): $message';
+}
+
 class AuthService {
   static final _supabase = Supabase.instance.client;
 
@@ -33,7 +42,7 @@ class AuthService {
     }
   }
 
-  /// Login with email/password
+  /// Login with email/password — throws AuthException on specific error
   static Future<bool> login(String email, String password) async {
     try {
       final res = await _supabase.auth.signInWithPassword(
@@ -41,9 +50,22 @@ class AuthService {
         password: password,
       );
       return res.session != null;
+    } on AuthApiException catch (e) {
+      // handle error dari Supabase
+      final msg = e.message.toLowerCase();
+
+      if (msg.contains('invalid login credentials')) {
+        // Supabase tidak bisa bedakan email/password salah
+        // jadi kita bisa lempar pesan umum
+        throw AuthException('WRONG_CREDENTIALS', 'Email atau password salah');
+      } else if (msg.contains('user not found')) {
+        throw AuthException('USER_NOT_FOUND', 'Email belum terdaftar');
+      } else {
+        throw AuthException('UNKNOWN', e.message);
+      }
     } catch (e) {
       print('Login error: $e');
-      return false;
+      throw AuthException('UNKNOWN', 'Terjadi kesalahan tak terduga');
     }
   }
 

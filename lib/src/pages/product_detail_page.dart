@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import '../models/product.dart';
 import '../pages/login_page.dart';
 import '../pages/checkout_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 
 class ProductDetailPage extends StatelessWidget {
   final Product product;
@@ -190,7 +192,11 @@ class ProductDetailPage extends StatelessWidget {
                           Expanded(
                             child: GestureDetector(
                               onTap: () {
-                                if (!isLoggedIn) {
+                                final session = Supabase
+                                    .instance.client.auth.currentSession;
+                                final loggedIn = session != null;
+
+                                if (!loggedIn) {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
                                         builder: (_) => const LoginPage()),
@@ -198,14 +204,13 @@ class ProductDetailPage extends StatelessWidget {
                                   return;
                                 }
                                 if (isLoggedIn) {
-                                  // navigate to checkout page, pass product
+                                  // navigate to checkout page
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => CheckoutPage(
                                           product: product, quantity: 1),
                                     ),
                                   );
-                                  return;
                                 }
 
 // previous fallback if not logged in is already handled above

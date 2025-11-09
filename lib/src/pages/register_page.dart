@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import 'login_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -13,54 +12,47 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirm = true;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmController.dispose();
     super.dispose();
+  }
+
+  String? _nameValidator(String? v) => (v == null || v.isEmpty) ? 'Nama wajib diisi' : null;
+  String? _emailValidator(String? v) {
+    if (v == null || v.isEmpty) return 'Email wajib diisi';
+    final emailRegex = RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$");
+    if (!emailRegex.hasMatch(v)) return 'Email tidak valid';
+    return null;
+  }
+  String? _passwordValidator(String? v) {
+    if (v == null || v.isEmpty) return 'Password wajib diisi';
+    if (v.length < 6) return 'Password minimal 6 karakter';
+    return null;
   }
 
   Future<void> _register() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-
     setState(() => _loading = true);
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
 
-    final ok = await AuthService.register(
-      _emailController.text.trim(),
-      _passwordController.text,
-      fullName: _nameController.text.trim(),
-    );
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    final success = await AuthService.register(email, password, fullName: name);
 
     setState(() => _loading = false);
 
-    if (ok) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Registration success! Please login.'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 3),
-        ),
-      );
-      Navigator.pop(context);
+    if (success) {
+      Navigator.of(context).pop(true); // kembali ke ProductListPage
     } else {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Registration failed — email mungkin sudah terdaftar.'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 3),
-        ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Register gagal — email mungkin sudah terdaftar')),
       );
     }
   }
@@ -68,26 +60,21 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     final s = MediaQuery.of(context).size;
-    final horizontalPadding = s.width * 0.08;
-    final logoHeight = s.height * 0.07;
-    final fieldGap = s.height * 0.025;
-    final buttonHeight = s.height * 0.08;
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Center(
-          child: Stack(
-            children: [
-              SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+        child: Stack(
+          children: [
+            Center(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: s.width * 0.08),
                 physics: const BouncingScrollPhysics(),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Image.asset(
                       'assets/images/sabi_login.png',
-                      height: logoHeight,
+                      height: s.height * 0.07,
                       fit: BoxFit.contain,
                     ),
                     SizedBox(height: s.height * 0.05),
@@ -95,29 +82,21 @@ class _RegisterPageState extends State<RegisterPage> {
                       key: _formKey,
                       child: Column(
                         children: [
-                          // Full Name
                           TextFormField(
                             controller: _nameController,
                             style: const TextStyle(color: Colors.white),
-                            textCapitalization: TextCapitalization.words,
                             decoration: const InputDecoration(
                               hintText: 'Full Name',
                               hintStyle: TextStyle(color: Colors.white54),
                               enabledBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(color: Colors.white38),
-                              ),
+                                  borderSide: BorderSide(color: Colors.white38)),
                               focusedBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(color: Colors.white),
-                              ),
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 14),
+                                  borderSide: BorderSide(color: Colors.white)),
+                              contentPadding: EdgeInsets.symmetric(vertical: 14),
                             ),
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? 'Nama wajib diisi'
-                                : null,
+                            validator: _nameValidator,
                           ),
-                          SizedBox(height: fieldGap),
-                          // Email
+                          SizedBox(height: s.height * 0.025),
                           TextFormField(
                             controller: _emailController,
                             style: const TextStyle(color: Colors.white),
@@ -126,97 +105,28 @@ class _RegisterPageState extends State<RegisterPage> {
                               hintText: 'Email',
                               hintStyle: TextStyle(color: Colors.white54),
                               enabledBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(color: Colors.white38),
-                              ),
+                                  borderSide: BorderSide(color: Colors.white38)),
                               focusedBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(color: Colors.white),
-                              ),
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 14),
+                                  borderSide: BorderSide(color: Colors.white)),
+                              contentPadding: EdgeInsets.symmetric(vertical: 14),
                             ),
-                            validator: (v) {
-                              if (v == null || v.isEmpty)
-                                return 'Email wajib diisi';
-                              final regex =
-                                  RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$");
-                              if (!regex.hasMatch(v))
-                                return 'Email tidak valid';
-                              return null;
-                            },
+                            validator: _emailValidator,
                           ),
-                          SizedBox(height: fieldGap),
-                          // Password
+                          SizedBox(height: s.height * 0.025),
                           TextFormField(
                             controller: _passwordController,
                             style: const TextStyle(color: Colors.white),
-                            obscureText: _obscurePassword,
-                            decoration: InputDecoration(
+                            obscureText: true,
+                            decoration: const InputDecoration(
                               hintText: 'Password',
-                              hintStyle: const TextStyle(color: Colors.white54),
-                              enabledBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(color: Colors.white38),
-                              ),
-                              focusedBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(color: Colors.white),
-                              ),
-                              contentPadding:
-                                  const EdgeInsets.symmetric(vertical: 14),
-                              suffixIcon: IconButton(
-                                padding: EdgeInsets.zero,
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
-                                  color: Colors.white54,
-                                ),
-                                onPressed: () => setState(
-                                    () => _obscurePassword = !_obscurePassword),
-                              ),
+                              hintStyle: TextStyle(color: Colors.white54),
+                              enabledBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.white38)),
+                              focusedBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.white)),
+                              contentPadding: EdgeInsets.symmetric(vertical: 14),
                             ),
-                            validator: (v) {
-                              if (v == null || v.isEmpty)
-                                return 'Password wajib diisi';
-                              if (v.length < 6)
-                                return 'Password minimal 6 karakter';
-                              return null;
-                            },
-                          ),
-                          SizedBox(height: fieldGap),
-                          // Confirm Password
-                          TextFormField(
-                            controller: _confirmController,
-                            style: const TextStyle(color: Colors.white),
-                            obscureText: _obscureConfirm,
-                            decoration: InputDecoration(
-                              hintText: 'Confirm Password',
-                              hintStyle: const TextStyle(color: Colors.white54),
-                              enabledBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(color: Colors.white38),
-                              ),
-                              focusedBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(color: Colors.white),
-                              ),
-                              contentPadding:
-                                  const EdgeInsets.symmetric(vertical: 14),
-                              suffixIcon: IconButton(
-                                padding: EdgeInsets.zero,
-                                icon: Icon(
-                                  _obscureConfirm
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
-                                  color: Colors.white54,
-                                ),
-                                onPressed: () => setState(
-                                    () => _obscureConfirm = !_obscureConfirm),
-                              ),
-                            ),
-                            validator: (v) {
-                              if (v == null || v.isEmpty)
-                                return 'Konfirmasi password wajib diisi';
-                              if (v != _passwordController.text)
-                                return 'Password tidak cocok';
-                              return null;
-                            },
+                            validator: _passwordValidator,
                           ),
                           SizedBox(height: s.height * 0.04),
                         ],
@@ -224,63 +134,33 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                     _loading
                         ? SizedBox(
-                            height: buttonHeight,
+                            height: s.height * 0.08,
                             child: const Center(
-                              child: CircularProgressIndicator(
-                                  color: Colors.white),
-                            ),
+                                child: CircularProgressIndicator(
+                                    color: Colors.white)),
                           )
                         : GestureDetector(
                             onTap: _register,
                             child: Image.asset(
-                              'assets/images/register_button.png',
-                              height: buttonHeight,
+                              'assets/images/login_button.png',
+                              height: s.height * 0.08,
                               fit: BoxFit.contain,
                             ),
                           ),
-                    SizedBox(height: s.height * 0.03),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Already have an account? ",
-                          style: TextStyle(
-                            color: Colors.white60,
-                            fontSize: s.width * 0.035,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const LoginPage()),
-                            );
-                          },
-                          child: Text(
-                            "Login",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: s.width * 0.035,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
-              if (_loading)
-                Container(
-                  color: Colors.black.withOpacity(0.5),
-                  child: const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
-                ),
-            ],
-          ),
+            ),
+            Positioned(
+              top: s.height * 0.02,
+              left: s.width * 0.02,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new,
+                    color: Colors.white, size: 22),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
         ),
       ),
     );
