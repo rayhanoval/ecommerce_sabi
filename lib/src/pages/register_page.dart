@@ -23,16 +23,19 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  String? _nameValidator(String? v) => (v == null || v.isEmpty) ? 'Nama wajib diisi' : null;
+  String? _nameValidator(String? v) =>
+      (v == null || v.isEmpty) ? 'Full name is required' : null;
+
   String? _emailValidator(String? v) {
-    if (v == null || v.isEmpty) return 'Email wajib diisi';
+    if (v == null || v.isEmpty) return 'Email is required';
     final emailRegex = RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$");
-    if (!emailRegex.hasMatch(v)) return 'Email tidak valid';
+    if (!emailRegex.hasMatch(v)) return 'Invalid email format';
     return null;
   }
+
   String? _passwordValidator(String? v) {
-    if (v == null || v.isEmpty) return 'Password wajib diisi';
-    if (v.length < 6) return 'Password minimal 6 karakter';
+    if (v == null || v.isEmpty) return 'Password is required';
+    if (v.length < 8) return 'Password must be at least 8 characters long';
     return null;
   }
 
@@ -49,10 +52,27 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => _loading = false);
 
     if (success) {
-      Navigator.of(context).pop(true); // kembali ke ProductListPage
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("A verification link has been sent to your email."),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.greenAccent,
+          ),
+        );
+
+        // Delay sedikit biar user lihat snackbar dulu
+        await Future.delayed(const Duration(seconds: 2));
+        if (mounted) Navigator.of(context).pop(true);
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Register gagal — email mungkin sudah terdaftar')),
+        const SnackBar(
+          content: Text(
+              "Registration failed — this email may already be registered."),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.redAccent,
+        ),
       );
     }
   }
@@ -89,10 +109,13 @@ class _RegisterPageState extends State<RegisterPage> {
                               hintText: 'Full Name',
                               hintStyle: TextStyle(color: Colors.white54),
                               enabledBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.white38)),
+                                borderSide: BorderSide(color: Colors.white38),
+                              ),
                               focusedBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.white)),
-                              contentPadding: EdgeInsets.symmetric(vertical: 14),
+                                borderSide: BorderSide(color: Colors.white),
+                              ),
+                              contentPadding:
+                                  EdgeInsets.symmetric(vertical: 14),
                             ),
                             validator: _nameValidator,
                           ),
@@ -105,10 +128,13 @@ class _RegisterPageState extends State<RegisterPage> {
                               hintText: 'Email',
                               hintStyle: TextStyle(color: Colors.white54),
                               enabledBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.white38)),
+                                borderSide: BorderSide(color: Colors.white38),
+                              ),
                               focusedBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.white)),
-                              contentPadding: EdgeInsets.symmetric(vertical: 14),
+                                borderSide: BorderSide(color: Colors.white),
+                              ),
+                              contentPadding:
+                                  EdgeInsets.symmetric(vertical: 14),
                             ),
                             validator: _emailValidator,
                           ),
@@ -121,10 +147,13 @@ class _RegisterPageState extends State<RegisterPage> {
                               hintText: 'Password',
                               hintStyle: TextStyle(color: Colors.white54),
                               enabledBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.white38)),
+                                borderSide: BorderSide(color: Colors.white38),
+                              ),
                               focusedBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.white)),
-                              contentPadding: EdgeInsets.symmetric(vertical: 14),
+                                borderSide: BorderSide(color: Colors.white),
+                              ),
+                              contentPadding:
+                                  EdgeInsets.symmetric(vertical: 14),
                             ),
                             validator: _passwordValidator,
                           ),
@@ -136,13 +165,14 @@ class _RegisterPageState extends State<RegisterPage> {
                         ? SizedBox(
                             height: s.height * 0.08,
                             child: const Center(
-                                child: CircularProgressIndicator(
-                                    color: Colors.white)),
+                              child: CircularProgressIndicator(
+                                  color: Colors.white),
+                            ),
                           )
                         : GestureDetector(
                             onTap: _register,
                             child: Image.asset(
-                              'assets/images/login_button.png',
+                              'assets/images/register_button.png',
                               height: s.height * 0.08,
                               fit: BoxFit.contain,
                             ),

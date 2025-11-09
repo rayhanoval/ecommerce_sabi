@@ -40,64 +40,89 @@ class _SplashPageState extends State<SplashPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Column(
-          children: [
-            SizedBox(height: screenHeight * 0.11),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final screenHeight = constraints.maxHeight;
+            final screenWidth = constraints.maxWidth;
 
-            // Logo SB
-            Center(
-              child: CircleAvatar(
-                backgroundImage:
-                    const AssetImage('assets/images/sb_symbol.png'),
-                backgroundColor: Colors.black,
-                radius: screenWidth * 0.4,
-              ),
-            ),
+            return Column(
+              children: [
+                SizedBox(height: screenHeight * 0.05),
 
-            SizedBox(height: screenHeight * 0.20),
-
-            // Tombol LOGIN/SIGNUP → tampil hanya kalau belum login
-            if (!isLoggedIn)
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginPage()),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: screenWidth * 0.15,
-                    vertical: screenHeight * 0.02,
+                // Logo SB
+                Flexible(
+                  flex: 5,
+                  child: Center(
+                    child: CircleAvatar(
+                      backgroundImage:
+                          const AssetImage('assets/images/sb_symbol.png'),
+                      backgroundColor: Colors.black,
+                      radius: screenWidth * 0.4,
+                    ),
                   ),
                 ),
-                child: Text(
-                  "LOGIN/SIGNUP",
-                  style: TextStyle(
-                    fontSize: screenWidth * 0.04,
-                    letterSpacing: 2,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ),
 
-            // Tombol Start Exploring (tetap ada)
-            IconButton(
-              icon: Image.asset(
-                'assets/images/start_exploring_button.png',
-                width: screenWidth * 0.7,
-                height: screenHeight * 0.15,
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ProductListPage()),
-                );
-              },
-            ),
-          ],
+                // Spacer dorong tombol ke bawah tapi lebih pendek supaya Start Exploring tidak terlalu rendah
+                const Spacer(flex: 1),
+
+                // Tombol LOGIN/SIGNUP + Start Exploring
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isLoggedIn)
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const LoginPage()),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth * 0.15,
+                            vertical: screenHeight * 0.02,
+                          ),
+                        ),
+                        child: Text(
+                          "LOGIN/SIGNUP",
+                          style: TextStyle(
+                            fontSize: screenWidth * 0.04,
+                            letterSpacing: 2,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+
+                    if (!isLoggedIn)
+                      SizedBox(height: 2), // tetap mepet LOGIN/SIGNUP
+
+                    // Tombol Start Exploring → selalu ada, naik sedikit ke atas
+                    IconButton(
+                      icon: Image.asset(
+                        'assets/images/start_exploring_button.png',
+                        width: screenWidth * 0.7,
+                        height: screenHeight * 0.15,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ProductListPage()),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+
+                SizedBox(
+                    height: screenHeight *
+                        0.08), // padding bawah agar tidak terlalu ke bawah
+              ],
+            );
+          },
         ),
       ),
     );

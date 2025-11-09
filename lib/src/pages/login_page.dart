@@ -28,15 +28,15 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   String? _emailValidator(String? v) {
-    if (v == null || v.isEmpty) return 'Email wajib diisi';
+    if (v == null || v.isEmpty) return 'Email is required';
     final emailRegex = RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$");
-    if (!emailRegex.hasMatch(v)) return 'Email tidak valid';
+    if (!emailRegex.hasMatch(v)) return 'Invalid email';
     return null;
   }
 
   String? _passwordValidator(String? v) {
-    if (v == null || v.isEmpty) return 'Password wajib diisi';
-    if (v.length < 6) return 'Password minimal 6 karakter';
+    if (v == null || v.isEmpty) return 'Password is required';
+    if (v.length < 8) return 'Password must be at least 8 characters';
     return null;
   }
 
@@ -69,14 +69,14 @@ class _LoginPageState extends State<LoginPage> {
         if (e.code == 'USER_NOT_FOUND') {
           _emailError = 'Email belum terdaftar';
         } else if (e.code == 'WRONG_CREDENTIALS') {
-          _passwordError = 'Password salah';
+          _passwordError = 'You have entered an invalid email or password';
         } else {
-          _passwordError = 'Terjadi kesalahan, coba lagi';
+          _passwordError = 'An error occurred, please try again';
         }
       });
     } catch (e) {
       setState(() => _loading = false);
-      _passwordError = 'Terjadi kesalahan tak terduga';
+      _passwordError = 'An unexpected error occurred';
     }
   }
 
