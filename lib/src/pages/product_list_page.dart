@@ -1,38 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../widgets/product/card.dart';
 import '../widgets/common/grid.dart';
 import '../services/products_service.dart';
 import '../pages/login_page.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter/services.dart';
+import '../pages/product_detail_page.dart';
+import '../models/product.dart';
 
 class ProductListPage extends StatefulWidget {
-  final bool isLoggedIn;
-
-  const ProductListPage({super.key, this.isLoggedIn = false});
+  const ProductListPage({super.key});
 
   @override
   State<ProductListPage> createState() => _ProductListPageState();
 }
 
 class _ProductListPageState extends State<ProductListPage> {
-  late bool isLoggedIn;
+  bool isLoggedIn = false;
 
   @override
   void initState() {
     super.initState();
-    isLoggedIn = widget.isLoggedIn;
 
-    // Pastikan status bar hitam dan ikon terang
+    // Cek session Supabase saat halaman dibuka
+    final session = Supabase.instance.client.auth.currentSession;
+    isLoggedIn = session != null;
+
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.black,
       statusBarIconBrightness: Brightness.light,
     ));
+
+    // Listen perubahan auth
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final event = data.event;
+      if (event == AuthChangeEvent.signedIn) {
+        setState(() => isLoggedIn = true);
+      } else if (event == AuthChangeEvent.signedOut) {
+        setState(() => isLoggedIn = false);
+      }
+    });
   }
 
   String _getName(dynamic item) {
     if (item == null) return '';
-    if (item is Map) return item['name']?.toString() ?? '';
+    if (item is Map)
+      return item['name']?.toString() ?? item['title']?.toString() ?? '';
     try {
       return item.name?.toString() ?? '';
     } catch (_) {
@@ -43,7 +58,7 @@ class _ProductListPageState extends State<ProductListPage> {
   double _getPrice(dynamic item) {
     if (item == null) return 0.0;
     if (item is Map) {
-      final p = item['price'];
+      final p = item['price'] ?? item['harga'] ?? item['amount'];
       if (p is num) return p.toDouble();
       if (p is String) return double.tryParse(p) ?? 0.0;
       return 0.0;
@@ -60,12 +75,50 @@ class _ProductListPageState extends State<ProductListPage> {
 
   String _getImageUrl(dynamic item) {
     if (item == null) return '';
-    if (item is Map) return item['imgUrl'] ?? '';
+    if (item is Map)
+      return (item['imgUrl'] ?? item['img_url'] ?? item['image'] ?? '')
+          .toString();
     try {
-      return item.imgUrl?.toString() ?? '';
+      return item.imgUrl?.toString() ?? item.image?.toString() ?? '';
     } catch (_) {
       return '';
     }
+  }
+
+  Product _toProduct(dynamic item) {
+    if (item == null)
+      return Product(
+          id: '0',
+          name: '',
+          price: 0,
+          description: '',
+          stock: 0,
+          rating: 0,
+          isActive: false,
+          imgUrl: '',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now());
+
+    if (item is Product) return item;
+
+    if (item is Map<String, dynamic>) {
+      final map = Map<String, dynamic>.from(item);
+      return Product.fromJson(map);
+    }
+
+    // fallback minimal
+    return Product(
+      id: '0',
+      name: _getName(item),
+      price: _getPrice(item),
+      description: '',
+      stock: 0,
+      rating: 0,
+      isActive: false,
+      imgUrl: _getImageUrl(item),
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
   }
 
   @override
@@ -73,20 +126,14 @@ class _ProductListPageState extends State<ProductListPage> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      extendBodyBehindAppBar: false, // supaya body tidak overlay status bar
+      extendBodyBehindAppBar: false,
       backgroundColor: Colors.black,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Colors.black,
         elevation: 0,
-        systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: Colors.black,
-          statusBarIconBrightness: Brightness.light,
-        ),
         toolbarHeight: 80,
-        flexibleSpace: Container(
-          color: Colors.black, // pastikan hitam solid
-        ),
+        flexibleSpace: Container(color: Colors.black),
         title: Padding(
           padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
           child: Image.asset(
@@ -125,8 +172,17 @@ class _ProductListPageState extends State<ProductListPage> {
           if (isLoggedIn) ...[
             IconButton(
               onPressed: () {
-                // navigasi ke profile page
+                // contoh: sign out
+                Supabase.instance.client.auth.signOut();
               },
+              icon: const Icon(Icons.logout_outlined),
+              color: Colors.white70,
+              iconSize: 20,
+              padding: const EdgeInsets.only(right: 16),
+              tooltip: 'Logout',
+            ),
+            IconButton(
+              onPressed: () {},
               icon: const Icon(Icons.person_outline),
               color: Colors.white70,
               iconSize: 20,
@@ -134,9 +190,7 @@ class _ProductListPageState extends State<ProductListPage> {
               tooltip: 'Profile',
             ),
             IconButton(
-              onPressed: () {
-                // navigasi ke cart page
-              },
+              onPressed: () {},
               icon: const Icon(Icons.shopping_cart_outlined),
               color: Colors.white70,
               iconSize: 20,
@@ -173,10 +227,24 @@ class _ProductListPageState extends State<ProductListPage> {
                   final price = _getPrice(item);
                   final imgUrl = _getImageUrl(item);
 
-                  return ProductCard(
-                    imgUrl: imgUrl,
-                    name: name,
-                    price: price,
+                  return GestureDetector(
+                    onTap: () {
+                      final productModel = _toProduct(item);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProductDetailPage(
+                            product: productModel,
+                            isLoggedIn: isLoggedIn,
+                          ),
+                        ),
+                      );
+                    },
+                    child: ProductCard(
+                      imgUrl: imgUrl,
+                      name: name,
+                      price: price,
+                    ),
                   );
                 },
               );

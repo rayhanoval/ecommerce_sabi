@@ -36,3 +36,9 @@ flutter:
     - assets/images/sabi_login.png
     - assets/images/product.png
     - assets/images/sabi_catalog.png
+    - assets/images/buy_now.png
+    - assets/images/login_buy_now.png
+    - assets/images/add_to_bag.png
+    - assets/images/alex.jpg
+    - assets/images/sabi_checkout.png
+    - assets/images/place_order_button.png

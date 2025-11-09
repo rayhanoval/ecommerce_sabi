@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
-import 'product_list_page.dart';
 import 'register_page.dart';
+import 'product_list_page.dart'; // ganti sesuai page utama app kamu
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,29 +17,77 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
 
-  void _login() async {
-    if (_formKey.currentState?.validate() ?? false) {
-      setState(() => _loading = true);
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
-      bool success = await AuthService.login(
-        _emailController.text,
-        _passwordController.text,
+  String? _emailValidator(String? v) {
+    if (v == null || v.isEmpty) return 'Email wajib diisi';
+    final emailRegex = RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$");
+    if (!emailRegex.hasMatch(v)) return 'Email tidak valid';
+    return null;
+  }
+
+  String? _passwordValidator(String? v) {
+    if (v == null || v.isEmpty) return 'Password wajib diisi';
+    if (v.length < 6) return 'Password minimal 6 karakter';
+    return null;
+  }
+
+  Future<void> _login() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    setState(() => _loading = true);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+
+    try {
+      final res = await Supabase.instance.client.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
       );
 
       setState(() => _loading = false);
 
-      if (success) {
+      if (res.session != null) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (_) => const ProductListPage(isLoggedIn: true),
-          ),
+          MaterialPageRoute(builder: (_) => const ProductListPage()),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Login gagal")),
+        messenger.showSnackBar(
+          const SnackBar(
+            content:
+                Text('Login gagal — cek email/password atau konfirmasi email.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ),
         );
       }
+    } on AuthException catch (e) {
+      setState(() => _loading = false);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Login gagal — ${e.message}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      setState(() => _loading = false);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Login gagal — ${e.toString()}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -51,7 +100,6 @@ class _LoginPageState extends State<LoginPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Konten utama
             Center(
               child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(horizontal: s.width * 0.08),
@@ -59,15 +107,12 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // logo sabi
                     Image.asset(
                       'assets/images/sabi_login.png',
                       height: s.height * 0.07,
                       fit: BoxFit.contain,
                     ),
                     SizedBox(height: s.height * 0.05),
-
-                    // form login
                     Form(
                       key: _formKey,
                       child: Column(
@@ -88,9 +133,7 @@ class _LoginPageState extends State<LoginPage> {
                               contentPadding:
                                   EdgeInsets.symmetric(vertical: 14),
                             ),
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? 'Email wajib diisi'
-                                : null,
+                            validator: _emailValidator,
                           ),
                           SizedBox(height: s.height * 0.025),
                           TextFormField(
@@ -109,20 +152,19 @@ class _LoginPageState extends State<LoginPage> {
                               contentPadding:
                                   EdgeInsets.symmetric(vertical: 14),
                             ),
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? 'Password wajib diisi'
-                                : null,
+                            validator: _passwordValidator,
                           ),
                           SizedBox(height: s.height * 0.02),
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
-                              onPressed: () {},
+                              onPressed: () {
+                                // TODO: implement forgot password flow
+                              },
                               style: TextButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 minimumSize: const Size(40, 20),
-                                tapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                               child: Text(
                                 'Forgot password?',
@@ -137,14 +179,12 @@ class _LoginPageState extends State<LoginPage> {
                         ],
                       ),
                     ),
-
-                    // tombol login
                     _loading
                         ? SizedBox(
                             height: s.height * 0.08,
                             child: const Center(
-                              child:
-                                  CircularProgressIndicator(color: Colors.white),
+                              child: CircularProgressIndicator(
+                                  color: Colors.white),
                             ),
                           )
                         : GestureDetector(
@@ -155,10 +195,7 @@ class _LoginPageState extends State<LoginPage> {
                               fit: BoxFit.contain,
                             ),
                           ),
-
                     SizedBox(height: s.height * 0.03),
-
-                    // teks "Don't have an account? Sign up"
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -191,17 +228,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ],
                 ),
-              ),
-            ),
-
-            // Tombol back di pojok kiri atas
-            Positioned(
-              top: s.height * 0.02,
-              left: s.width * 0.02,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new,
-                    color: Colors.white, size: 22),
-                onPressed: () => Navigator.pop(context),
               ),
             ),
           ],
