@@ -1,4 +1,3 @@
-// lib/pages/product_list_page.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
@@ -25,7 +24,7 @@ class _ProductListPageState extends State<ProductListPage> {
   void initState() {
     super.initState();
 
-    // Cek session Supabase saat halaman dibuka
+    // cek session Supabase saat halaman dibuka
     final session = Supabase.instance.client.auth.currentSession;
     isLoggedIn = session != null;
 
@@ -34,7 +33,8 @@ class _ProductListPageState extends State<ProductListPage> {
       statusBarIconBrightness: Brightness.light,
     ));
 
-    // Listen perubahan auth (login/logout)
+    // listen perubahan auth (login/logout)
+    // onAuthStateChange returns Stream<AuthState> where data.event indicates change
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final event = data.event;
       if (event == AuthChangeEvent.signedIn) {
@@ -77,7 +77,7 @@ class _ProductListPageState extends State<ProductListPage> {
   String _getImageUrl(dynamic item) {
     if (item == null) return '';
     if (item is Map)
-      return (item['imgUrl'] ?? item['img_url'] ?? item['image'] ?? '')
+      return (item['img_url'] ?? item['imgUrl'] ?? item['image'] ?? '')
           .toString();
     try {
       return item.imgUrl?.toString() ?? item.image?.toString() ?? '';
@@ -87,27 +87,53 @@ class _ProductListPageState extends State<ProductListPage> {
   }
 
   Product _toProduct(dynamic item) {
-    if (item == null)
+    if (item == null) {
       return Product(
-          id: '0',
-          name: '',
-          price: 0,
-          description: '',
-          stock: 0,
-          rating: 0,
-          isActive: false,
-          imgUrl: '',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now());
+        id: '0',
+        name: '',
+        price: 0,
+        description: '',
+        stock: 0,
+        rating: 0,
+        isActive: false,
+        imgUrl: '',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+    }
 
     if (item is Product) return item;
 
     if (item is Map<String, dynamic>) {
-      final map = Map<String, dynamic>.from(item);
-      return Product.fromJson(map);
+      try {
+        return Product.fromJson(item);
+      } catch (e) {
+        // fallback mapping if Product.fromJson incompatible
+        final map = Map<String, dynamic>.from(item);
+        return Product(
+          id: map['id']?.toString() ??
+              DateTime.now().millisecondsSinceEpoch.toString(),
+          name: map['name']?.toString() ?? map['title']?.toString() ?? '',
+          price: (map['price'] is num)
+              ? (map['price'] as num).toDouble()
+              : double.tryParse(map['price']?.toString() ?? '') ?? 0.0,
+          description: map['description']?.toString() ?? '',
+          stock: (map['stock'] is int)
+              ? map['stock'] as int
+              : int.tryParse(map['stock']?.toString() ?? '') ?? 0,
+          rating: (map['rating'] is num)
+              ? (map['rating'] as num).toDouble()
+              : double.tryParse(map['rating']?.toString() ?? '') ?? 0.0,
+          isActive: map['is_active'] ?? map['isActive'] ?? false,
+          imgUrl: (map['img_url'] ?? map['imgUrl'] ?? map['image'] ?? '')
+              .toString(),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+      }
     }
 
-    // fallback minimal
+    // unknown type fallback
     return Product(
       id: '0',
       name: _getName(item),
@@ -183,7 +209,9 @@ class _ProductListPageState extends State<ProductListPage> {
               tooltip: 'Logout',
             ),
             IconButton(
-              onPressed: () {},
+              onPressed: () {
+                // bisa buka profile page nanti
+              },
               icon: const Icon(Icons.person_outline),
               color: Colors.white70,
               iconSize: 20,
@@ -191,7 +219,9 @@ class _ProductListPageState extends State<ProductListPage> {
               tooltip: 'Profile',
             ),
             IconButton(
-              onPressed: () {},
+              onPressed: () {
+                // bisa buka cart page nanti
+              },
               icon: const Icon(Icons.shopping_cart_outlined),
               color: Colors.white70,
               iconSize: 20,
