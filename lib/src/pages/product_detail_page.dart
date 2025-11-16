@@ -4,7 +4,7 @@ import '../models/product.dart';
 import '../pages/login_page.dart';
 import '../pages/checkout_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:ecommerce_sabi/src/widgets/product/product_rating_section.dart';
 
 class ProductDetailPage extends StatelessWidget {
   final Product product;
@@ -109,191 +109,197 @@ class ProductDetailPage extends StatelessWidget {
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                child: Column(
-                  children: [
-                    // PRODUCT IMAGE (smaller & centered)
-                    Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: horizontalPadding),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: productImageWidth,
-                            maxHeight: imageMaxHeight,
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: product.imgUrl.isNotEmpty
-                                ? Image.network(
-                                    product.imgUrl,
-                                    fit: BoxFit.cover,
-                                    width: productImageWidth,
-                                    height: imageMaxHeight,
-                                    errorBuilder: (c, e, st) => Container(
-                                      color: Colors.grey[900],
-                                      child: const Center(
-                                        child: Icon(Icons.image_not_supported,
-                                            color: Colors.white24, size: 48),
-                                      ),
-                                    ),
-                                  )
-                                : Container(
+                child: Column(children: [
+                  // PRODUCT IMAGE (smaller & centered)
+                  Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: horizontalPadding),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: productImageWidth,
+                          maxHeight: imageMaxHeight,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: product.imgUrl.isNotEmpty
+                              ? Image.network(
+                                  product.imgUrl,
+                                  fit: BoxFit.cover,
+                                  width: productImageWidth,
+                                  height: imageMaxHeight,
+                                  errorBuilder: (c, e, st) => Container(
                                     color: Colors.grey[900],
-                                    height: imageMaxHeight,
                                     child: const Center(
-                                      child: Icon(Icons.image,
+                                      child: Icon(Icons.image_not_supported,
                                           color: Colors.white24, size: 48),
                                     ),
                                   ),
-                          ),
+                                )
+                              : Container(
+                                  color: Colors.grey[900],
+                                  height: imageMaxHeight,
+                                  child: const Center(
+                                    child: Icon(Icons.image,
+                                        color: Colors.white24, size: 48),
+                                  ),
+                                ),
                         ),
                       ),
                     ),
+                  ),
 
-                    const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                    // TITLE + PRICE
-                    Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: horizontalPadding),
-                      child: Column(
-                        children: [
-                          Text(
-                            product.name.toUpperCase(),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              letterSpacing: 2.5,
-                              fontWeight: FontWeight.w600,
-                            ),
+                  // TITLE + PRICE
+                  Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: horizontalPadding),
+                    child: Column(
+                      children: [
+                        Text(
+                          product.name.toUpperCase(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            letterSpacing: 2.5,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            priceText,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    SizedBox(height: gapTitleButtons),
-
-                    // BUTTONS
-                    Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: horizontalPadding),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                final session = Supabase
-                                    .instance.client.auth.currentSession;
-                                final loggedIn = session != null;
-
-                                if (!loggedIn) {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                        builder: (_) => const LoginPage()),
-                                  );
-                                  return;
-                                }
-                                if (isLoggedIn) {
-                                  // navigate to checkout page
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => CheckoutPage(
-                                          product: product, quantity: 1),
-                                    ),
-                                  );
-                                }
-
-// previous fallback if not logged in is already handled above
-                              },
-                              child: Image.asset(
-                                isLoggedIn
-                                    ? 'assets/images/buy_now.png'
-                                    : 'assets/images/login_buy_now.png',
-                                height: buttonHeight,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: screenWidth * 0.04),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                if (onAddToBag != null) {
-                                  onAddToBag!();
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text('Added to bag (mock)')),
-                                  );
-                                }
-                              },
-                              child: Image.asset(
-                                'assets/images/add_to_bag.png',
-                                height: buttonHeight,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    SizedBox(height: gapButtonsDescription),
-
-                    // DESCRIPTION
-                    Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: horizontalPadding),
-                      child: Align(
-                        alignment: Alignment.center,
-                        child: Text(
-                          'DESCRIPTION:',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 10,
-                            letterSpacing: 2,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          priceText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(height: 10),
-                    Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: horizontalPadding),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: descLines.map((line) {
-                          final display = '•  $line';
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
-                            child: Text(
-                              display,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                                height: 1.4,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
+                  ),
 
-                    SizedBox(height: screenHeight * 0.06),
-                  ],
-                ),
+                  SizedBox(height: gapTitleButtons),
+
+                  // BUTTONS
+                  // BUTTONS
+                  Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: horizontalPadding),
+                    child: Row(
+                      children: [
+                        // BUY NOW / LOGIN TO BUY NOW
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              final session =
+                                  Supabase.instance.client.auth.currentSession;
+                              final loggedIn = session != null;
+
+                              if (!loggedIn) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                      builder: (_) => const LoginPage()),
+                                );
+                                return;
+                              }
+
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => CheckoutPage(
+                                      product: product, quantity: 1),
+                                ),
+                              );
+                            },
+                            child: Image.asset(
+                              isLoggedIn
+                                  ? 'assets/images/buy_now.png'
+                                  : 'assets/images/login_buy_now.png',
+                              height: buttonHeight,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+
+                        // VERTICAL BAR
+                        Container(
+                          width: 2,
+                          height: buttonHeight * 0.9,
+                          margin: EdgeInsets.symmetric(
+                              horizontal: screenWidth * 0.03),
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+
+                        // ADD TO BAG
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              if (onAddToBag != null) {
+                                onAddToBag!();
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Added to bag (mock)')),
+                                );
+                              }
+                            },
+                            child: Image.asset(
+                              'assets/images/add_to_bag.png',
+                              height: buttonHeight,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(height: gapButtonsDescription),
+
+                  // DESCRIPTION
+                  Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: horizontalPadding),
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: Text(
+                        'DESCRIPTION:',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 10,
+                          letterSpacing: 2,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: horizontalPadding),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: descLines.map((line) {
+                        final display = '•  $line';
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Text(
+                            display,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              height: 1.4,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  ProductRatingSection(product: product),
+                  SizedBox(height: screenHeight * 0.06),
+                ]),
               ),
             ),
           ],

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:ecommerce_sabi/src/pages/edit_profile_page.dart';
 import '../widgets/product/card.dart';
 import '../widgets/common/grid.dart';
 import '../services/products_service.dart';
@@ -99,6 +99,8 @@ class _ProductListPageState extends State<ProductListPage> {
         imgUrl: '',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
+        ratingCount: 0,
+        ratingAvg: 0.0,
       );
     }
 
@@ -129,6 +131,12 @@ class _ProductListPageState extends State<ProductListPage> {
               .toString(),
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
+          ratingCount: (map['rating_count'] is int)
+              ? map['rating_count'] as int
+              : int.tryParse(map['rating_count']?.toString() ?? '') ?? 0,
+          ratingAvg: (map['rating_avg'] is num)
+              ? (map['rating_avg'] as num).toDouble()
+              : double.tryParse(map['rating_avg']?.toString() ?? '') ?? 0.0,
         );
       }
     }
@@ -145,6 +153,8 @@ class _ProductListPageState extends State<ProductListPage> {
       imgUrl: _getImageUrl(item),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      ratingCount: 0,
+      ratingAvg: 0.0,
     );
   }
 
@@ -209,8 +219,12 @@ class _ProductListPageState extends State<ProductListPage> {
               tooltip: 'Logout',
             ),
             IconButton(
-              onPressed: () {
-                // bisa buka profile page nanti
+              onPressed: () async {
+                final res = await Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const EditProfilePage()));
+                if (res == true) {
+                  // optionally refresh UI
+                }
               },
               icon: const Icon(Icons.person_outline),
               color: Colors.white70,
