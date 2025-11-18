@@ -1,4 +1,3 @@
-// lib/services/profile_service.dart
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path/path.dart' as p;
@@ -18,41 +17,49 @@ class ProfileService {
           'avatars/$uid/${DateTime.now().millisecondsSinceEpoch}_$filename';
 
       // upload file
-      final res = await _client.storage.from('avatars').uploadBinary(
+      await _client.storage.from('avatars').uploadBinary(
             remotePath,
             await file.readAsBytes(),
             fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
           );
 
-      // get public url (if bucket is public)
+      // public URL
       final publicUrl =
           _client.storage.from('avatars').getPublicUrl(remotePath);
-      // if bucket private, use createSignedUrl
-      // final signed = await _client.storage.from('avatars').createSignedUrl(remotePath, 60*60*24);
+
       return publicUrl;
     } catch (e) {
-      // fallback: return null
       print('uploadAvatar error: $e');
       return null;
     }
   }
 
-  /// Update profile row fields
-  static Future<bool> updateProfile(String userId,
-      {String? displayName,
-      String? username,
-      String? bio,
-      String? avatarUrl}) async {
+  /// Update profile row fields, now including: phone, address
+  static Future<bool> updateProfile(
+    String userId, {
+    String? displayName,
+    String? username,
+    String? bio,
+    String? avatarUrl,
+    String? phone,
+    String? address,
+  }) async {
     try {
       final data = <String, dynamic>{};
+
       if (displayName != null) data['display_name'] = displayName;
       if (username != null) data['username'] = username;
       if (bio != null) data['bio'] = bio;
       if (avatarUrl != null) data['avatar_url'] = avatarUrl;
+
+      // NEW FIELDS
+      if (phone != null) data['phone'] = phone;
+      if (address != null) data['address'] = address;
+
       data['updated_at'] = DateTime.now().toIso8601String();
 
-      final res = await _client.from('profiles').update(data).eq('id', userId);
-      // Supabase v2 returns PostgrestResponse-like without .error execute; treat as success
+      await _client.from('profiles').update(data).eq('id', userId);
+
       return true;
     } catch (e) {
       print('updateProfile error: $e');

@@ -1,5 +1,6 @@
 import 'package:ecommerce_sabi/src/pages/product_list_page.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthException;
 import '../services/auth_service.dart';
 import 'register_page.dart';
 
@@ -11,27 +12,25 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _emailOrUsernameController =
+      TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
 
-  // 👇 Tambahan variabel buat nampung error spesifik
   String? _emailError;
   String? _passwordError;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _emailOrUsernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  String? _emailValidator(String? v) {
-    if (v == null || v.isEmpty) return 'Email is required';
-    final emailRegex = RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$");
-    if (!emailRegex.hasMatch(v)) return 'Invalid email';
-    return null;
+  String? _emailOrUsernameValidator(String? v) {
+    if (v == null || v.isEmpty) return 'Email or username is required';
+    return null; // boleh format apapun
   }
 
   String? _passwordValidator(String? v) {
@@ -42,20 +41,46 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _login() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+
     setState(() {
       _loading = true;
       _emailError = null;
       _passwordError = null;
     });
 
-    final email = _emailController.text.trim();
+    final input = _emailOrUsernameController.text.trim();
     final password = _passwordController.text;
 
+    String emailToLogin = input;
+
     try {
-      final success = await AuthService.login(email, password);
+      // 🔥 Jika user input username (tidak ada '@')
+      if (!input.contains("@")) {
+        // lookup ke table profiles
+        final res = await Supabase.instance.client
+            .from('profiles')
+            .select('email')
+            .eq('username', input)
+            .maybeSingle();
+
+        if (res == null) {
+          setState(() {
+            _loading = false;
+            _emailError = "Username not found";
+          });
+          return;
+        }
+
+        emailToLogin = res['email'];
+      }
+
+      // 🔥 Setelah dapat email → login
+      final success = await AuthService.login(emailToLogin, password);
+
       setState(() => _loading = false);
 
       if (success) {
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ProductListPage()),
@@ -65,18 +90,19 @@ class _LoginPageState extends State<LoginPage> {
       setState(() {
         _loading = false;
 
-        // 👇 Tampilkan error tepat di bawah field sesuai jenisnya
         if (e.code == 'USER_NOT_FOUND') {
-          _emailError = 'Email belum terdaftar';
+          _emailError = 'Account not found';
         } else if (e.code == 'WRONG_CREDENTIALS') {
-          _passwordError = 'You have entered an invalid email or password';
+          _passwordError = 'Incorrect email/username or password';
         } else {
-          _passwordError = 'An error occurred, please try again';
+          _passwordError = 'An error occurred, try again';
         }
       });
     } catch (e) {
-      setState(() => _loading = false);
-      _passwordError = 'An unexpected error occurred';
+      setState(() {
+        _loading = false;
+        _passwordError = 'Unexpected error occurred';
+      });
     }
   }
 
@@ -94,7 +120,6 @@ class _LoginPageState extends State<LoginPage> {
                 padding: EdgeInsets.symmetric(horizontal: s.width * 0.08),
                 physics: const BouncingScrollPhysics(),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Image.asset(
                       'assets/images/sabi_login.png',
@@ -107,12 +132,12 @@ class _LoginPageState extends State<LoginPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // 🔥 FIELD BARU: Email or Username
                           TextFormField(
-                            controller: _emailController,
+                            controller: _emailOrUsernameController,
                             style: const TextStyle(color: Colors.white),
-                            keyboardType: TextInputType.emailAddress,
                             decoration: const InputDecoration(
-                              hintText: 'Email',
+                              hintText: 'Email or Username',
                               hintStyle: TextStyle(color: Colors.white54),
                               enabledBorder: UnderlineInputBorder(
                                 borderSide: BorderSide(color: Colors.white38),
@@ -120,15 +145,13 @@ class _LoginPageState extends State<LoginPage> {
                               focusedBorder: UnderlineInputBorder(
                                 borderSide: BorderSide(color: Colors.white),
                               ),
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 14),
                             ),
-                            validator: _emailValidator,
+                            validator: _emailOrUsernameValidator,
                           ),
-                          // 👇 tampilkan error di bawah textfield
+
                           if (_emailError != null)
                             Padding(
-                              padding: const EdgeInsets.only(top: 4, left: 4),
+                              padding: const EdgeInsets.only(top: 4),
                               child: Text(
                                 _emailError!,
                                 style: const TextStyle(
@@ -137,6 +160,7 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                               ),
                             ),
+
                           SizedBox(height: s.height * 0.025),
 
                           TextFormField(
@@ -152,15 +176,13 @@ class _LoginPageState extends State<LoginPage> {
                               focusedBorder: UnderlineInputBorder(
                                 borderSide: BorderSide(color: Colors.white),
                               ),
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 14),
                             ),
                             validator: _passwordValidator,
                           ),
-                          // 👇 tampilkan error password di bawah textfield
+
                           if (_passwordError != null)
                             Padding(
-                              padding: const EdgeInsets.only(top: 4, left: 4),
+                              padding: const EdgeInsets.only(top: 4),
                               child: Text(
                                 _passwordError!,
                                 style: const TextStyle(
@@ -169,27 +191,8 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                               ),
                             ),
-                          SizedBox(height: s.height * 0.02),
 
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {},
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: const Size(40, 20),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: Text(
-                                'Forgot password?',
-                                style: TextStyle(
-                                  color: Colors.white60,
-                                  fontSize: s.width * 0.034,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: s.height * 0.04),
+                          SizedBox(height: s.height * 0.02),
                         ],
                       ),
                     ),
@@ -220,13 +223,11 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const RegisterPage()),
-                            );
-                          },
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const RegisterPage()),
+                          ),
                           child: Text(
                             "Sign up",
                             style: TextStyle(
@@ -241,15 +242,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ],
                 ),
-              ),
-            ),
-            Positioned(
-              top: s.height * 0.02,
-              left: s.width * 0.02,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new,
-                    color: Colors.white, size: 22),
-                onPressed: () => Navigator.pop(context),
               ),
             ),
           ],

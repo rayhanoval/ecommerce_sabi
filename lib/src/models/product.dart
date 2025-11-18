@@ -4,7 +4,7 @@ class Product {
   final double price;
   final String description;
   final int stock;
-  final double rating; // bisa dihapus kalau mau pakai ratingAvg
+  final double rating;
   final bool isActive;
   final String imgUrl;
   final DateTime createdAt;
@@ -29,22 +29,18 @@ class Product {
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      price: (json['price'] as num).toDouble(),
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      price: double.tryParse(json['price'].toString()) ?? 0.0,
       description: json['description'] ?? '',
-      stock: json['stock'] as int,
-      rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
-      isActive: json['is_active'] as bool? ?? true,
+      stock: json['stock'] ?? 0,
+      rating: double.tryParse(json['rating'].toString()) ?? 0.0,
+      isActive: json['is_active'] ?? false,
       imgUrl: json['img_url'] ?? '',
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : DateTime.now(),
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
-          : DateTime.now(),
-      ratingCount: (json['rating_count'] as int?) ?? 0,
-      ratingAvg: (json['rating_avg'] as num?)?.toDouble() ?? 0.0,
+      createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
+      ratingCount: json['rating_count'] ?? 0,
+      ratingAvg: double.tryParse(json['rating_avg'].toString()) ?? 0.0,
     );
   }
 }

@@ -12,29 +12,45 @@ class AuthException implements Exception {
 class AuthService {
   static final _supabase = Supabase.instance.client;
 
-  /// Register with email/password, then save full name in profiles
-  static Future<bool> register(String email, String password,
-      {String? fullName}) async {
+  /// Register user and create a profiles row with separate full_name and username fields.
+  /// Returns true on success, false on failure.
+  static Future<bool> register(
+    String email,
+    String password, {
+    String? fullName,
+    String? username,
+  }) async {
     try {
       final res = await _supabase.auth.signUp(
         email: email,
         password: password,
       );
-      final user = res.user;
 
-      if (user != null) {
-        // save full name in profiles table
-        if (fullName != null && fullName.isNotEmpty) {
-          await _supabase.from('profiles').insert({
-            'id': user.id,
-            'full_name': fullName,
-            'email': email,
-            'created_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
-          });
-        }
-        return true;
+      final user = res.user;
+      if (user == null) return false;
+
+      // ensure username: if not provided, generate fallback
+      String finalUsername = username?.trim() ?? '';
+      if (finalUsername.isEmpty) {
+        finalUsername =
+            'user_${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
       }
+
+      // try insert profile row
+      await _supabase.from('profiles').insert({
+        'id': user.id,
+        'email': email,
+        'full_name': fullName ?? '',
+        'username': finalUsername,
+        'avatar_url': null,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      return true;
+    } on AuthApiException catch (e) {
+      // supabase auth error
+      print('Auth register error: ${e.message}');
       return false;
     } catch (e) {
       print('Register error: $e');
@@ -42,7 +58,7 @@ class AuthService {
     }
   }
 
-  /// Login with email/password — throws AuthException on specific error
+  /// Login
   static Future<bool> login(String email, String password) async {
     try {
       final res = await _supabase.auth.signInWithPassword(
@@ -51,12 +67,8 @@ class AuthService {
       );
       return res.session != null;
     } on AuthApiException catch (e) {
-      // handle error dari Supabase
       final msg = e.message.toLowerCase();
-
       if (msg.contains('invalid login credentials')) {
-        // Supabase tidak bisa bedakan email/password salah
-        // jadi kita bisa lempar pesan umum
         throw AuthException('WRONG_CREDENTIALS', 'Email atau password salah');
       } else if (msg.contains('user not found')) {
         throw AuthException('USER_NOT_FOUND', 'Email belum terdaftar');
@@ -64,7 +76,6 @@ class AuthService {
         throw AuthException('UNKNOWN', e.message);
       }
     } catch (e) {
-      print('Login error: $e');
       throw AuthException('UNKNOWN', 'Terjadi kesalahan tak terduga');
     }
   }
@@ -74,8 +85,36 @@ class AuthService {
     await _supabase.auth.signOut();
   }
 
-  /// Check if logged in
+  /// Is logged in
   static bool isLoggedIn() {
     return _supabase.auth.currentSession != null;
+  }
+
+  /// Get current profile
+  static Future<Map<String, dynamic>?> getCurrentProfile() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+    final res = await _supabase
+        .from('profiles')
+        .select()
+        .eq('id', user.id)
+        .maybeSingle();
+    return res;
+  }
+
+  /// Update profile (helper)
+  static Future<bool> updateProfile(Map<String, dynamic> data) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return false;
+    try {
+      await _supabase.from('profiles').update({
+        ...data,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
+      return true;
+    } catch (e) {
+      print('updateProfile error: $e');
+      return false;
+    }
   }
 }

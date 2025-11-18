@@ -14,9 +14,13 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   final _client = Supabase.instance.client;
-  final _displayCtrl = TextEditingController();
+
   final _usernameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _displayCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
 
   String? _avatarUrl;
   File? _pickedFile;
@@ -29,19 +33,34 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _loadProfile() async {
-    final user = _client.auth.currentUser;
-    if (user == null) return;
-    final id = user.id;
-    final rows =
-        await _client.from('profiles').select().eq('id', id).maybeSingle();
-    if (rows != null) {
-      final map = Map<String, dynamic>.from(rows);
-      setState(() {
-        _displayCtrl.text = map['display_name'] ?? map['full_name'] ?? '';
-        _usernameCtrl.text = map['username'] ?? '';
-        _bioCtrl.text = map['bio'] ?? '';
-        _avatarUrl = map['avatar_url'];
-      });
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return;
+
+      final id = user.id;
+
+      final row =
+          await _client.from('profiles').select().eq('id', id).maybeSingle();
+      if (row != null) {
+        final map = Map<String, dynamic>.from(row as Map);
+        setState(() {
+          _usernameCtrl.text = map['username'] ?? '';
+          _emailCtrl.text = user.email ?? '';
+          _displayCtrl.text = map['display_name'] ?? map['full_name'] ?? '';
+          _bioCtrl.text = map['bio'] ?? '';
+          _phoneCtrl.text = map['phone'] ?? '';
+          _addressCtrl.text = map['address'] ?? '';
+          _avatarUrl = map['avatar_url'];
+        });
+      } else {
+        // fallback: still fill email & username from auth if available
+        setState(() {
+          _emailCtrl.text = user.email ?? '';
+        });
+      }
+    } catch (e) {
+      // ignore load errors for now, but print for debugging
+      print('loadProfile error: $e');
     }
   }
 
@@ -62,9 +81,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
           .showSnackBar(const SnackBar(content: Text('Please login first')));
       return;
     }
+
     setState(() => _loading = true);
 
     String? uploadedUrl = _avatarUrl;
+
+    // upload avatar if user picked one
     if (_pickedFile != null) {
       final url =
           await ProfileService.uploadAvatar(_pickedFile!, userId: user.id);
@@ -74,16 +96,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final ok = await ProfileService.updateProfile(
       user.id,
       displayName: _displayCtrl.text.trim(),
-      username: _usernameCtrl.text.trim(),
+      username: _usernameCtrl.text
+          .trim(), // usually read-only but still send if present
       bio: _bioCtrl.text.trim(),
       avatarUrl: uploadedUrl,
+      phone: _phoneCtrl.text.trim(),
+      address: _addressCtrl.text.trim(),
     );
 
     setState(() => _loading = false);
+
     if (ok) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Profile updated')));
-      Navigator.of(context).pop(true);
+      if (mounted) Navigator.of(context).pop(true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to update profile')));
@@ -92,19 +118,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   void dispose() {
-    _displayCtrl.dispose();
     _usernameCtrl.dispose();
+    _emailCtrl.dispose();
+    _displayCtrl.dispose();
     _bioCtrl.dispose();
+    _phoneCtrl.dispose();
+    _addressCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final s = MediaQuery.of(context).size;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-          title: const Text('Edit Profile'), backgroundColor: Colors.black),
+        title: const Text('Edit Profile'),
+        backgroundColor: Colors.black,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -133,47 +165,109 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   onPressed: _pickImage, child: const Text('Change avatar')),
 
               const SizedBox(height: 18),
+
+              // 1. USERNAME (read-only)
+              TextFormField(
+                controller: _usernameCtrl,
+                readOnly: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Username',
+                  labelStyle: TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: Colors.white10,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // 2. EMAIL (read-only)
+              TextFormField(
+                controller: _emailCtrl,
+                readOnly: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  labelStyle: TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: Colors.white10,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // 3. DISPLAY NAME
               TextFormField(
                 controller: _displayCtrl,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
-                    labelText: 'Display name',
-                    labelStyle: TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white10),
+                  labelText: 'Display name',
+                  labelStyle: TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: Colors.white10,
+                ),
               ),
+
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _usernameCtrl,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                    labelText: 'Username',
-                    labelStyle: TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white10),
-              ),
-              const SizedBox(height: 12),
+
+              // 4. BIO
               TextFormField(
                 controller: _bioCtrl,
                 style: const TextStyle(color: Colors.white),
                 maxLines: 3,
                 decoration: const InputDecoration(
-                    labelText: 'Bio',
-                    labelStyle: TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white10),
+                  labelText: 'Bio',
+                  labelStyle: TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: Colors.white10,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // 5. PHONE NUMBER
+              TextFormField(
+                controller: _phoneCtrl,
+                style: const TextStyle(color: Colors.white),
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Phone number',
+                  labelStyle: TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: Colors.white10,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // 6. ADDRESS
+              TextFormField(
+                controller: _addressCtrl,
+                style: const TextStyle(color: Colors.white),
+                keyboardType: TextInputType.streetAddress,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Address',
+                  labelStyle: TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: Colors.white10,
+                ),
               ),
 
               const SizedBox(height: 20),
+
               _loading
                   ? const CircularProgressIndicator()
                   : ElevatedButton(
                       onPressed: _save,
-                      child: const Padding(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 12),
-                          child: Text('Save')),
-                    )
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                        padding: EdgeInsets.symmetric(
+                            horizontal: s.width * 0.12, vertical: 14),
+                      ),
+                      child: const Text('Save'),
+                    ),
             ],
           ),
         ),
