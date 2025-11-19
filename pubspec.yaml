@@ -18,7 +18,7 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   dio: ^5.0.0
   google_fonts: ^4.0.5
-  image_picker: ^0.8.7+4
+  image_picker: ^0.8.7+4fl
   path: ^1.8.2
 
 dev_dependencies:

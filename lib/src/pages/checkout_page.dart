@@ -19,13 +19,14 @@ class CheckoutPage extends StatefulWidget {
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
-  String _name = '';
-  String _address = '';
+  final supabase = Supabase.instance.client;
+
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+
   String _shippingMethod = "Regular";
   String _paymentMethod = "Cash On Delivery";
   bool _isLoading = false;
-
-  final supabase = Supabase.instance.client;
 
   @override
   void initState() {
@@ -37,33 +38,35 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
-    final profileResp = await supabase
-        .from('profiles')
-        .select('full_name, default_address')
-        .eq('id', user.id)
-        .maybeSingle();
+    try {
+      final resp = await supabase
+          .from('profiles')
+          .select('full_name, default_address')
+          .eq('id', user.id)
+          .maybeSingle();
 
-    if (profileResp != null) {
-      final profile = Map<String, dynamic>.from(profileResp);
-      if (!mounted) return;
-      setState(() {
-        _name = profile['full_name'] ?? '';
-        _address = profile['default_address'] ?? '';
-      });
+      if (resp != null && mounted) {
+        _nameController.text = (resp['full_name'] ?? '').toString();
+        _addressController.text = (resp['default_address'] ?? '').toString();
+        setState(() {});
+      }
+    } catch (e) {
+      // ignore load errors silently; UI stays editable
+      debugPrint('loadProfile error: $e');
     }
   }
 
   String _formatPrice(double price) {
-    final f =
-        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    return f.format(price);
+    return NumberFormat.currency(
+            locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
+        .format(price);
   }
 
   Map<String, dynamic>? _normalizeFirstRow(dynamic resp) {
     if (resp == null) return null;
     if (resp is Map<String, dynamic>) return resp;
     if (resp is List && resp.isNotEmpty && resp[0] is Map) {
-      return Map<String, dynamic>.from(resp[0] as Map);
+      return Map<String, dynamic>.from(resp[0]);
     }
     return null;
   }
@@ -78,37 +81,39 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     final qty = widget.quantity;
-    final totalPrice = widget.product.price * qty;
+    final basePrice = widget.product.price * qty;
+    final shippingFee = _shippingMethod == "Regular" ? 10000 : 20000;
+    final totalPrice = basePrice + shippingFee;
 
-    if (_name.isEmpty || _address.isEmpty) {
+    final name = _nameController.text.trim();
+    final address = _addressController.text.trim();
+
+    if (name.isEmpty || address.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nama dan alamat harus tersedia')),
+        const SnackBar(content: Text('Nama dan alamat tidak boleh kosong')),
       );
       return;
     }
 
     setState(() => _isLoading = true);
 
-    String? createdOrderId;
-
     try {
-      // 1) ambil current stock & price
-      final prodResp = await supabase
+      // ambil stock & harga terbaru
+      final productResp = await supabase
           .from('products')
           .select('stock, price')
           .eq('id', widget.product.id)
           .maybeSingle();
 
-      if (prodResp == null) throw Exception('Produk tidak ditemukan');
+      if (productResp == null) throw Exception('Produk tidak ditemukan');
 
-      final prodMap =
-          Map<String, dynamic>.from(prodResp as Map<String, dynamic>);
-      final currentStock = (prodMap['stock'] is int)
-          ? prodMap['stock'] as int
-          : int.tryParse((prodMap['stock'] ?? '0').toString()) ?? 0;
-      final productPrice = (prodMap['price'] is num)
-          ? (prodMap['price'] as num).toDouble()
-          : double.tryParse((prodMap['price'] ?? '0').toString()) ?? 0.0;
+      final prod = Map<String, dynamic>.from(productResp);
+      final currentStock = (prod['stock'] is int)
+          ? prod['stock'] as int
+          : int.tryParse((prod['stock'] ?? '0').toString()) ?? 0;
+      final productPrice = (prod['price'] is num)
+          ? (prod['price'] as num).toDouble()
+          : double.tryParse((prod['price'] ?? '0').toString()) ?? 0.0;
 
       if (currentStock < qty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -117,58 +122,44 @@ class _CheckoutPageState extends State<CheckoutPage> {
         return;
       }
 
-      // 2) insert orders
+      // insert order
       final orderPayload = {
         'user_id': user.id,
         'total_price': totalPrice,
-        'shipping_address': _address,
+        'shipping_address': address,
         'payment_method': _paymentMethod,
         'status': 'pending',
         'created_at': DateTime.now().toUtc().toIso8601String(),
       };
 
-      final orderInsertResult =
+      final insertOrder =
           await supabase.from('orders').insert(orderPayload).select();
-
-      final orderMap = _normalizeFirstRow(orderInsertResult);
-      if (orderMap == null || !(orderMap.containsKey('id'))) {
+      final orderMap = _normalizeFirstRow(insertOrder);
+      if (orderMap == null || orderMap['id'] == null) {
         throw Exception('Gagal membuat order');
       }
+      final orderId = orderMap['id'].toString();
 
-      createdOrderId = orderMap['id'].toString();
-
-      // 3) insert order_items
-      final itemPayload = {
-        'order_id': createdOrderId,
+      // insert order item
+      await supabase.from('order_items').insert({
+        'order_id': orderId,
         'product_id': widget.product.id,
         'quantity': qty,
         'price': productPrice,
         'subtotal': productPrice * qty,
         'created_at': DateTime.now().toUtc().toIso8601String(),
-      };
+      });
 
-      final itemInsertResult =
-          await supabase.from('order_items').insert(itemPayload).select();
-      final itemMap = _normalizeFirstRow(itemInsertResult);
-      if (itemMap == null) {
-        await supabase.from('orders').delete().eq('id', createdOrderId);
-        throw Exception('Gagal menambahkan order item');
-      }
-
-      // 4) update stock
-      final newStock = currentStock - qty;
-      await supabase
-          .from('products')
-          .update({
-            'stock': newStock,
-            'updated_at': DateTime.now().toUtc().toIso8601String()
-          })
-          .eq('id', widget.product.id)
-          .select();
+      // update stock
+      await supabase.from('products').update({
+        'stock': currentStock - qty,
+        'updated_at': DateTime.now().toUtc().toIso8601String()
+      }).eq('id', widget.product.id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Order berhasil dibuat ✅')));
+          const SnackBar(content: Text('Order berhasil dibuat ✅')),
+        );
         Navigator.of(context).pop();
       }
     } catch (e) {
@@ -181,35 +172,46 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   @override
+  void dispose() {
+    _nameController.dispose();
+    _addressController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final w = mq.size.width;
     final h = mq.size.height;
 
-    final horizontalPad = (w * 0.06).clamp(16.0, 28.0);
-    final sectionSpacing = h * 0.028;
-    final titleHeight = (w * 0.18).clamp(36.0, 64.0);
-    final placeBtnHeight = (w * 0.11).clamp(40.0, 56.0);
-    final borderRadius = 8.0;
-    final totalPrice = widget.product.price * widget.quantity;
+    // responsive sizes
+    final horizontalPad = (w * 0.06).clamp(14.0, 28.0);
+    final logoHeight = (w * 0.16).clamp(36.0, 64.0);
+    final placeBtnHeight = (w * 0.12).clamp(44.0, 64.0);
 
-    Widget sectionBox({required Widget child, EdgeInsets? padding}) {
+    final basePrice = widget.product.price * widget.quantity;
+    final shippingFee = _shippingMethod == "Regular" ? 10000 : 20000;
+    final totalPrice = basePrice + shippingFee;
+
+    Widget sectionBox({required Widget child}) {
       return Container(
         width: double.infinity,
-        padding: padding ?? const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(borderRadius),
-          border: Border.all(color: Colors.white, width: 2),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white24),
         ),
         child: child,
       );
     }
 
-    Widget labelBox(String text) => Container(
+    Widget labelChip(String text) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-              color: Colors.white, borderRadius: BorderRadius.circular(6)),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+          ),
           child: Text(text,
               style: const TextStyle(
                   fontSize: 10,
@@ -224,102 +226,183 @@ class _CheckoutPageState extends State<CheckoutPage> {
           padding: EdgeInsets.symmetric(horizontal: horizontalPad),
           child: Column(
             children: [
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new,
-                        color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
-                    splashRadius: 20,
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: h * 0.015),
+              // header
+              Padding(
+                padding: EdgeInsets.only(top: h * 0.01, bottom: h * 0.01),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new,
+                          color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    Expanded(
                       child: Center(
-                        child: Image.asset('assets/images/sabi_checkout.png',
-                            height: titleHeight, fit: BoxFit.contain),
+                        child: Image.asset(
+                          'assets/images/sabi_checkout.png',
+                          height: logoHeight,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
+                    const SizedBox(width: 48), // spacer to balance
+                  ],
+                ),
               ),
-              SizedBox(height: sectionSpacing * 0.4),
+
+              const SizedBox(height: 6),
+
+              // content
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // NAME
                       sectionBox(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            labelBox('NAME/ADDRESS'),
+                            labelChip('NAME'),
                             const SizedBox(height: 8),
-                            Text(_name,
-                                style: const TextStyle(color: Colors.white)),
-                            const SizedBox(height: 4),
-                            Text(_address,
-                                style: const TextStyle(color: Colors.white)),
+                            TextField(
+                              controller: _nameController,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Enter your name',
+                                hintStyle:
+                                    const TextStyle(color: Colors.white54),
+                                filled: true,
+                                fillColor: Colors.white10,
+                                border: OutlineInputBorder(
+                                  borderSide: BorderSide.none,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                      SizedBox(height: sectionSpacing * 0.5),
+
+                      SizedBox(height: h * 0.02),
+
+                      // ADDRESS
                       sectionBox(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            labelBox('SHIPPING METHOD'),
+                            labelChip('ADDRESS'),
                             const SizedBox(height: 8),
-                            DropdownButton<String>(
-                              dropdownColor: Colors.black,
-                              value: _shippingMethod,
-                              items: const [
-                                DropdownMenuItem(
-                                    value: 'Regular',
-                                    child: Text('Regular',
-                                        style: TextStyle(color: Colors.white))),
-                                DropdownMenuItem(
-                                    value: 'Express',
-                                    child: Text('Express',
-                                        style: TextStyle(color: Colors.white))),
+                            TextField(
+                              controller: _addressController,
+                              maxLines: 3,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Enter shipping address',
+                                hintStyle:
+                                    const TextStyle(color: Colors.white54),
+                                filled: true,
+                                fillColor: Colors.white10,
+                                border: OutlineInputBorder(
+                                  borderSide: BorderSide.none,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: h * 0.02),
+
+                      // SHIPPING METHOD
+                      sectionBox(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            labelChip('SHIPPING METHOD'),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<String>(
+                                    value: _shippingMethod,
+                                    decoration: const InputDecoration(
+                                      filled: true,
+                                      fillColor: Colors.white10,
+                                      border: OutlineInputBorder(
+                                          borderSide: BorderSide.none,
+                                          borderRadius: BorderRadius.zero),
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 4),
+                                    ),
+                                    dropdownColor: Colors.black,
+                                    items: const [
+                                      DropdownMenuItem(
+                                          value: 'Regular',
+                                          child: Text('Regular',
+                                              style: TextStyle(
+                                                  color: Colors.white))),
+                                      DropdownMenuItem(
+                                          value: 'Express',
+                                          child: Text('Express',
+                                              style: TextStyle(
+                                                  color: Colors.white))),
+                                    ],
+                                    onChanged: (v) => setState(
+                                        () => _shippingMethod = v ?? 'Regular'),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(_formatPrice(shippingFee.toDouble()),
+                                    style:
+                                        const TextStyle(color: Colors.white70)),
                               ],
-                              onChanged: (v) =>
-                                  setState(() => _shippingMethod = v!),
-                            )
+                            ),
                           ],
                         ),
                       ),
-                      SizedBox(height: sectionSpacing * 0.5),
+
+                      SizedBox(height: h * 0.02),
+
+                      // PAYMENT
                       sectionBox(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            labelBox('PAYMENT'),
+                            labelChip('PAYMENT'),
                             const SizedBox(height: 8),
                             Text(_paymentMethod,
                                 style: const TextStyle(color: Colors.white70)),
                           ],
                         ),
                       ),
-                      SizedBox(height: sectionSpacing * 0.6),
+
+                      SizedBox(height: h * 0.02),
+
+                      // PRODUCT SUMMARY
                       sectionBox(
                         child: Row(
                           children: [
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(8),
                               child: Container(
-                                width: (w * 0.22).clamp(64.0, 120.0),
-                                height: (w * 0.14).clamp(48.0, 80.0),
+                                width: (w * 0.26).clamp(70.0, 110.0),
+                                height: (w * 0.18).clamp(56.0, 90.0),
                                 color: Colors.grey[900],
                                 child: widget.product.imgUrl.isNotEmpty
-                                    ? Image.network(widget.product.imgUrl,
+                                    ? Image.network(
+                                        widget.product.imgUrl,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (c, e, st) => const Icon(
-                                            Icons.image_not_supported,
-                                            color: Colors.white24))
+                                        errorBuilder: (_, __, ___) =>
+                                            const Icon(
+                                                Icons.image_not_supported,
+                                                color: Colors.white24),
+                                      )
                                     : const Icon(Icons.image,
                                         color: Colors.white24),
                               ),
@@ -332,8 +415,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                   Text(widget.product.name.toUpperCase(),
                                       style: const TextStyle(
                                           color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700)),
+                                          fontWeight: FontWeight.bold)),
                                   const SizedBox(height: 6),
                                   Text('${widget.quantity}x',
                                       style: const TextStyle(
@@ -349,36 +431,80 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 22),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+
+                      SizedBox(height: h * 0.03),
+
+                      // TOTAL BREAKDOWN
+                      sectionBox(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('TOTAL PRICE:',
+                                const Text('ITEM TOTAL',
+                                    style: TextStyle(color: Colors.white70)),
+                                Text(_formatPrice(basePrice),
+                                    style:
+                                        const TextStyle(color: Colors.white)),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('SHIPPING',
+                                    style: TextStyle(color: Colors.white70)),
+                                Text(_formatPrice(shippingFee.toDouble()),
+                                    style:
+                                        const TextStyle(color: Colors.white)),
+                              ],
+                            ),
+                            const Divider(color: Colors.white12, height: 18),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('TOTAL PRICE',
                                     style: TextStyle(
-                                        color: Colors.white70, fontSize: 12)),
-                                const SizedBox(height: 6),
+                                        color: Colors.white70,
+                                        fontWeight: FontWeight.bold)),
                                 Text(_formatPrice(totalPrice),
                                     style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold)),
                               ],
                             ),
-                          ),
-                          GestureDetector(
-                            onTap: _isLoading ? null : _placeOrder,
-                            child: _isLoading
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white)
-                                : Image.asset(
-                                    'assets/images/place_order_button.png',
-                                    height: placeBtnHeight,
-                                    fit: BoxFit.contain),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
+
+                      SizedBox(height: h * 0.035),
+
+                      // PLACE ORDER
+                      SizedBox(
+                        width: double.infinity,
+                        height: placeBtnHeight,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _placeOrder,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.black, strokeWidth: 2))
+                              : Text(
+                                  'PLACE ORDER • ${_formatPrice(totalPrice)}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+
                       SizedBox(height: h * 0.06),
                     ],
                   ),

@@ -20,10 +20,14 @@ class ProductDetailPage extends StatelessWidget {
     this.onBuyNow,
   });
 
-  String _formatPrice(double price) {
-    final f =
-        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    return f.format(price);
+  String _formatPrice(double value) {
+    final formatter = NumberFormat.currency(
+      locale: 'id',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+
+    return formatter.format(value);
   }
 
   List<String> _descriptionLines(String description) {
