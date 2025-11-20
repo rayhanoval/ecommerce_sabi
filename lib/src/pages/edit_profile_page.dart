@@ -16,7 +16,6 @@ class EditProfilePage extends StatefulWidget {
 class _EditProfilePageState extends State<EditProfilePage> {
   final _client = Supabase.instance.client;
 
-  final _usernameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _displayCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
@@ -38,35 +37,34 @@ class _EditProfilePageState extends State<EditProfilePage> {
       final user = _client.auth.currentUser;
       if (user == null) return;
 
-      final id = user.id;
-
-      final row =
-          await _client.from('profiles').select().eq('id', id).maybeSingle();
-      debugPrint('loadProfile row: $row');
+      // Ambil row profile berdasarkan user.id
+      final row = await _client
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
 
       if (row != null) {
         final map = Map<String, dynamic>.from(row as Map);
         setState(() {
-          _usernameCtrl.text = map['username'] ?? '';
           _emailCtrl.text = user.email ?? '';
-          _displayCtrl.text = map['display_name'] ?? map['full_name'] ?? '';
+          _displayCtrl.text = map['display_name'] ?? '';
           _bioCtrl.text = map['bio'] ?? '';
           _phoneCtrl.text = map['phone'] ?? '';
-          // use default_address per DB schema
           _addressCtrl.text = map['default_address'] ?? '';
           _avatarUrl = map['avatar_url'];
           _pickedFile = null;
         });
       } else {
+        // fallback
         setState(() {
           _emailCtrl.text = user.email ?? '';
-          _usernameCtrl.text = '';
           _avatarUrl = null;
           _pickedFile = null;
         });
       }
-    } catch (e, st) {
-      debugPrint('loadProfile error: $e\n$st');
+    } catch (e) {
+      debugPrint('loadProfile error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to load profile')));
     }
@@ -103,19 +101,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     String? uploadedUrl = _avatarUrl;
 
-    // 1) upload avatar jika user memilih file
+    // Upload avatar jika ada
     if (_pickedFile != null) {
       final uploadRes =
           await ProfileService.uploadAvatar(_pickedFile!, userId: user.id);
-      debugPrint('uploadRes: $uploadRes');
 
       if (uploadRes['ok'] == true && uploadRes['url'] != null) {
-        final url = uploadRes['url'];
-        if (url is String && url.isNotEmpty) {
-          uploadedUrl = url;
-        } else {
-          uploadedUrl = url.toString();
-        }
+        uploadedUrl = uploadRes['url'];
       } else {
         final err = uploadRes['error'] ?? 'Unknown upload error';
         setState(() => _loading = false);
@@ -125,24 +117,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
     }
 
-    // 2) upsert profile ke DB — perhatikan: updateProfile mengembalikan Map
+    // Upsert profile ke DB
     final result = await ProfileService.updateProfile(
       user.id,
       displayName: _displayCtrl.text.trim(),
-      username: _usernameCtrl.text.trim(),
       bio: _bioCtrl.text.trim(),
-      avatarUrl: uploadedUrl,
       phone: _phoneCtrl.text.trim(),
       defaultAddress: _addressCtrl.text.trim(),
-      email: _emailCtrl.text.trim(),
+      avatarUrl: uploadedUrl,
+      // Username & email tidak diubah
     );
-
-    debugPrint('updateProfile result: $result');
 
     setState(() => _loading = false);
 
     if (result['ok'] == true) {
-      // sukses — evict cache kalau ada uploadedUrl
+      // evict cache untuk avatar baru
       if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
         try {
           await ImageCacheHelper.evictImageByUrl(uploadedUrl);
@@ -163,7 +152,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   void dispose() {
-    _usernameCtrl.dispose();
     _emailCtrl.dispose();
     _displayCtrl.dispose();
     _bioCtrl.dispose();
@@ -183,20 +171,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
         backgroundColor: Colors.black,
         actions: [
           IconButton(
-            onPressed: () async {
-              await _loadProfile();
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('Refreshed')));
-            },
+            onPressed: _loadProfile,
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () async {
-            await _loadProfile();
-          },
+          onRefresh: _loadProfile,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
@@ -223,17 +205,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 TextButton(
                     onPressed: _pickImage, child: const Text('Change avatar')),
                 const SizedBox(height: 18),
-                TextFormField(
-                  controller: _usernameCtrl,
-                  readOnly: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
-                    labelStyle: TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white10,
-                  ),
-                ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _emailCtrl,

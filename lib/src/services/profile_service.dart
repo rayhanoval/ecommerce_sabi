@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
+import 'package:ecommerce_sabi/src/services/auth_service.dart';
 
 class ProfileService {
   static final SupabaseClient _client = Supabase.instance.client;
@@ -17,7 +18,7 @@ class ProfileService {
   }) async {
     try {
       final ext = f.path.split('.').last;
-      final key = 'avatars/$userId/${_uuid.v4()}.$ext';
+      final key = 'avatars/$userId/avatar.$ext';
 
       final upload = await _storage.from(_avatarBucket).upload(key, f);
       debugPrint('storage.upload result: $upload');
@@ -42,10 +43,7 @@ class ProfileService {
         }
       } catch (_) {}
 
-      return {
-        'ok': false,
-        'error': 'Upload selesai tapi URL tidak ditemukan.'
-      };
+      return {'ok': false, 'error': 'Upload selesai tapi URL tidak ditemukan.'};
     } catch (e) {
       return {'ok': false, 'error': e.toString()};
     }

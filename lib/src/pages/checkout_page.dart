@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/product.dart';
+import 'edit_address_page.dart';
 
 class CheckoutPage extends StatefulWidget {
   final Product product;
@@ -28,6 +29,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String _paymentMethod = "Cash On Delivery";
   bool _isLoading = false;
 
+  Map<String, dynamic>? _selectedAddressRow; // store selected address row
+
   @override
   void initState() {
     super.initState();
@@ -41,17 +44,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
     try {
       final resp = await supabase
           .from('profiles')
-          .select('full_name, default_address')
+          .select('display_name, default_address')
           .eq('id', user.id)
           .maybeSingle();
 
       if (resp != null && mounted) {
-        _nameController.text = (resp['full_name'] ?? '').toString();
-        _addressController.text = (resp['default_address'] ?? '').toString();
+        _nameController.text = (resp['display_name'] ?? '').toString();
+        final defaultAddr = (resp['default_address'] ?? '').toString();
+        _addressController.text = defaultAddr;
+        // if you want to preload a selectedAddressRow, you could query addresses table here
         setState(() {});
       }
     } catch (e) {
-      // ignore load errors silently; UI stays editable
       debugPrint('loadProfile error: $e');
     }
   }
@@ -178,6 +182,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
     super.dispose();
   }
 
+  Future<void> _pickAddress() async {
+    // navigate to EditAddressPage and await selected address map
+    final selected = await Navigator.of(context).push<Map<String, dynamic>?>(
+      MaterialPageRoute(builder: (_) => const EditAddressPage()),
+    );
+
+    if (selected != null && mounted) {
+      setState(() {
+        _selectedAddressRow = selected;
+        _addressController.text = (selected['address'] ?? '').toString();
+        _nameController.text =
+            (selected['name'] ?? _nameController.text).toString();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
@@ -258,7 +278,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   physics: const BouncingScrollPhysics(),
                   child: Column(
                     children: [
-                      // NAME
+                      // NAME (read-only)
                       sectionBox(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,9 +287,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             const SizedBox(height: 8),
                             TextField(
                               controller: _nameController,
+                              readOnly: true,
                               style: const TextStyle(color: Colors.white),
                               decoration: InputDecoration(
-                                hintText: 'Enter your name',
+                                hintText: 'Your name',
                                 hintStyle:
                                     const TextStyle(color: Colors.white54),
                                 filled: true,
@@ -288,32 +309,53 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
                       SizedBox(height: h * 0.02),
 
-                      // ADDRESS
-                      sectionBox(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            labelChip('ADDRESS'),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _addressController,
-                              maxLines: 3,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: InputDecoration(
-                                hintText: 'Enter shipping address',
-                                hintStyle:
-                                    const TextStyle(color: Colors.white54),
-                                filled: true,
-                                fillColor: Colors.white10,
-                                border: OutlineInputBorder(
-                                  borderSide: BorderSide.none,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 12),
+                      // ADDRESS = button to edit addresses
+                      GestureDetector(
+                        onTap: _pickAddress,
+                        child: sectionBox(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              labelChip('ADDRESS'),
+                              const SizedBox(height: 8),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _addressController,
+                                      readOnly: true,
+                                      maxLines: 3,
+                                      style:
+                                          const TextStyle(color: Colors.white),
+                                      decoration: InputDecoration(
+                                        hintText: 'Choose shipping address',
+                                        hintStyle: const TextStyle(
+                                            color: Colors.white54),
+                                        filled: true,
+                                        fillColor: Colors.white10,
+                                        border: OutlineInputBorder(
+                                          borderSide: BorderSide.none,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 12),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Column(
+                                    children: const [
+                                      Icon(Icons.chevron_right,
+                                          color: Colors.white70),
+                                    ],
+                                  )
+                                ],
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
 
@@ -395,14 +437,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 height: (w * 0.18).clamp(56.0, 90.0),
                                 color: Colors.grey[900],
                                 child: widget.product.imgUrl.isNotEmpty
-                                    ? Image.network(
-                                        widget.product.imgUrl,
+                                    ? Image.network(widget.product.imgUrl,
                                         fit: BoxFit.cover,
                                         errorBuilder: (_, __, ___) =>
                                             const Icon(
                                                 Icons.image_not_supported,
-                                                color: Colors.white24),
-                                      )
+                                                color: Colors.white24))
                                     : const Icon(Icons.image,
                                         color: Colors.white24),
                               ),
@@ -440,40 +480,40 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('ITEM TOTAL',
-                                    style: TextStyle(color: Colors.white70)),
-                                Text(_formatPrice(basePrice),
-                                    style:
-                                        const TextStyle(color: Colors.white)),
-                              ],
-                            ),
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('ITEM TOTAL',
+                                      style: TextStyle(color: Colors.white70)),
+                                  Text(_formatPrice(basePrice),
+                                      style:
+                                          const TextStyle(color: Colors.white))
+                                ]),
                             const SizedBox(height: 8),
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('SHIPPING',
-                                    style: TextStyle(color: Colors.white70)),
-                                Text(_formatPrice(shippingFee.toDouble()),
-                                    style:
-                                        const TextStyle(color: Colors.white)),
-                              ],
-                            ),
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('SHIPPING',
+                                      style: TextStyle(color: Colors.white70)),
+                                  Text(_formatPrice(shippingFee.toDouble()),
+                                      style:
+                                          const TextStyle(color: Colors.white))
+                                ]),
                             const Divider(color: Colors.white12, height: 18),
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('TOTAL PRICE',
-                                    style: TextStyle(
-                                        color: Colors.white70,
-                                        fontWeight: FontWeight.bold)),
-                                Text(_formatPrice(totalPrice),
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold)),
-                              ],
-                            ),
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('TOTAL PRICE',
+                                      style: TextStyle(
+                                          color: Colors.white70,
+                                          fontWeight: FontWeight.bold)),
+                                  Text(_formatPrice(totalPrice),
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold))
+                                ]),
                           ],
                         ),
                       ),
@@ -487,11 +527,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _placeOrder,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                          ),
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12))),
                           child: _isLoading
                               ? const SizedBox(
                                   width: 20,

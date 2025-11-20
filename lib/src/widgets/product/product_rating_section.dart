@@ -7,9 +7,11 @@ class ProductRatingSection extends StatelessWidget {
   final Product product;
   const ProductRatingSection({super.key, required this.product});
 
-  // Stream 10 review terbaru
+  // Stream 10 review terbaru (realtime)
   Stream<List<Map<String, dynamic>>> _ratingsStream() {
     final client = Supabase.instance.client;
+    // NOTE: if you want embedded profiles, consider using `.select('*, profiles(*)')`
+    // with a normal query. Realtime stream often returns raw rows — fallback handled below.
     return client
         .from('product_ratings')
         .stream(primaryKey: ['id'])
@@ -48,6 +50,7 @@ class ProductRatingSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final barMaxWidth = screenWidth * 0.45;
+    const accent = Color.fromRGBO(255, 202, 46, 1); // requested color
 
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _ratingsStream(),
@@ -60,17 +63,17 @@ class ProductRatingSection extends StatelessWidget {
           );
         }
         if (snap.hasError) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20),
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
             child: Center(
                 child: Text('Failed to load ratings',
-                    style: const TextStyle(color: Colors.redAccent))),
+                    style: TextStyle(color: Colors.redAccent))),
           );
         }
 
         final rows = snap.data ?? [];
 
-        // Sort terbaru dulu
+        // sort newest first (defensive)
         rows.sort((a, b) {
           final ta = a['created_at'] != null
               ? DateTime.tryParse(a['created_at'].toString()) ?? DateTime.now()
@@ -81,15 +84,74 @@ class ProductRatingSection extends StatelessWidget {
           return tb.compareTo(ta);
         });
 
-        // Preview 3 review terbaru
         final recent = rows.take(3).toList();
+
+        // compute counts (1..5)
+        final counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
+        for (var r in rows) {
+          final v = r['rating'];
+          int rv = 0;
+          if (v is int)
+            rv = v;
+          else if (v is String) rv = int.tryParse(v) ?? 0;
+          if (rv >= 1 && rv <= 5) counts[rv] = counts[rv]! + 1;
+        }
+        final total = counts.values.fold<int>(0, (a, b) => a + b);
+        final avg = total > 0
+            ? counts.entries
+                    .map((e) => e.key * e.value)
+                    .reduce((a, b) => a + b) /
+                total
+            : 0.0;
+
+        Widget buildBar(int star) {
+          final cnt = counts[star] ?? 0;
+          final pct = total == 0 ? 0.0 : cnt / total;
+          final width = (barMaxWidth * pct).clamp(4.0, barMaxWidth);
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              children: [
+                SizedBox(
+                    width: 26,
+                    child: Text('$star',
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 12))),
+                const SizedBox(width: 6),
+                Container(
+                  width: barMaxWidth,
+                  height: 10,
+                  decoration: BoxDecoration(
+                      color: Colors.white12,
+                      borderRadius: BorderRadius.circular(6)),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                        width: pct == 0 ? 4.0 : width,
+                        height: 10,
+                        decoration: BoxDecoration(
+                            color: accent,
+                            borderRadius: BorderRadius.circular(6))),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                    width: 36,
+                    child: Text('$cnt',
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 12))),
+              ],
+            ),
+          );
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
+            // Header (with increased horizontal padding)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
               child: Row(
                 children: [
                   const Expanded(
@@ -110,15 +172,16 @@ class ProductRatingSection extends StatelessWidget {
               ),
             ),
 
-            // Summary
+            // Summary (with padding)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6),
               child: Row(
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(product.ratingAvg.toStringAsFixed(1),
+                      Text(avg.toStringAsFixed(1),
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 36,
@@ -128,84 +191,41 @@ class ProductRatingSection extends StatelessWidget {
                         children: List.generate(
                           5,
                           (i) => Icon(
-                            i < product.ratingAvg.round()
-                                ? Icons.star
-                                : Icons.star_border,
-                            color: Colors.greenAccent,
+                            i < avg.round() ? Icons.star : Icons.star_border,
+                            color: accent,
                             size: 16,
                           ),
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text('${product.ratingCount} reviews',
+                      Text('$total reviews',
                           style: const TextStyle(
                               color: Colors.white54, fontSize: 12)),
                     ],
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: Column(
-                      children: List.generate(5, (star) {
-                        final cnt = rows
-                            .where((r) => (r['rating'] ?? 0) == 5 - star)
-                            .length;
-                        final pct = rows.isEmpty ? 0.0 : cnt / rows.length;
-                        final width =
-                            (barMaxWidth * pct).clamp(4.0, barMaxWidth);
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 3),
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                  width: 26,
-                                  child: Text('${5 - star}',
-                                      style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12))),
-                              const SizedBox(width: 6),
-                              Container(
-                                width: barMaxWidth,
-                                height: 10,
-                                decoration: BoxDecoration(
-                                    color: Colors.white12,
-                                    borderRadius: BorderRadius.circular(6)),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Container(
-                                    width: pct == 0 ? 4.0 : width,
-                                    height: 10,
-                                    decoration: BoxDecoration(
-                                        color: Colors.greenAccent,
-                                        borderRadius: BorderRadius.circular(6)),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                  width: 36,
-                                  child: Text('$cnt',
-                                      style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12))),
-                            ],
-                          ),
-                        );
-                      }),
-                    ),
-                  )
+                    child: Column(children: [
+                      buildBar(5),
+                      buildBar(4),
+                      buildBar(3),
+                      buildBar(2),
+                      buildBar(1),
+                    ]),
+                  ),
                 ],
               ),
             ),
 
-            // Latest 3 reviews
+            // Recent 3 reviews (with padding)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (recent.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.0),
                       child: Text('No reviews yet',
                           style: TextStyle(color: Colors.white54)),
                     )
@@ -214,10 +234,21 @@ class ProductRatingSection extends StatelessWidget {
                       final profile = (r['profiles'] is Map)
                           ? Map<String, dynamic>.from(r['profiles'])
                           : null;
+
+                      // prefer display_name -> full_name -> username -> short id
                       final name = profile != null
-                          ? (profile['full_name'] ?? 'User')
-                          : (r['user_id']?.toString().substring(0, 6) ??
-                              'User');
+                          ? (profile['display_name'] ??
+                              profile['full_name'] ??
+                              profile['username'] ??
+                              '')
+                          : '';
+
+                      final displayName =
+                          (name != null && name.toString().trim().isNotEmpty)
+                              ? name.toString()
+                              : (r['user_id']?.toString().substring(0, 6) ??
+                                  'User');
+
                       final avatarUrl =
                           profile != null ? (profile['avatar_url'] ?? '') : '';
                       final comment = (r['comment'] ?? '').toString();
@@ -238,9 +269,9 @@ class ProductRatingSection extends StatelessWidget {
                                         height: 40,
                                         fit: BoxFit.cover,
                                         errorBuilder: (_, __, ___) =>
-                                            _initialAvatar(name)),
+                                            _initialAvatar(displayName)),
                                   )
-                                : _initialAvatar(name),
+                                : _initialAvatar(displayName),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -249,7 +280,7 @@ class ProductRatingSection extends StatelessWidget {
                                   Row(
                                     children: [
                                       Expanded(
-                                          child: Text(name,
+                                          child: Text(displayName,
                                               style: const TextStyle(
                                                   color: Colors.white,
                                                   fontWeight: FontWeight.bold,
@@ -262,16 +293,14 @@ class ProductRatingSection extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 6),
                                   Row(
-                                    children: List.generate(
-                                        5,
-                                        (i) => Icon(
+                                      children: List.generate(
+                                          5,
+                                          (i) => Icon(
                                               i < (r['rating'] ?? 0)
                                                   ? Icons.star
                                                   : Icons.star_border,
-                                              color: Colors.greenAccent,
-                                              size: 14,
-                                            )),
-                                  ),
+                                              color: accent,
+                                              size: 14))),
                                   const SizedBox(height: 6),
                                   Text(comment,
                                       style: const TextStyle(

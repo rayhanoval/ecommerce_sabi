@@ -12,7 +12,7 @@ class AuthException implements Exception {
 class AuthService {
   static final _supabase = Supabase.instance.client;
 
-  /// Register user and create a profiles row with separate full_name and username fields.
+  /// Register user and create a profiles row with separate display_name and username fields.
   /// Returns true on success, false on failure.
   static Future<bool> register(
     String email,
@@ -21,39 +21,43 @@ class AuthService {
     String? username,
   }) async {
     try {
-      final res = await _supabase.auth.signUp(
-        email: email,
-        password: password,
-      );
-
+      final res = await _supabase.auth.signUp(email: email, password: password);
       final user = res.user;
-      if (user == null) return false;
-
-      // ensure username: if not provided, generate fallback
-      String finalUsername = username?.trim() ?? '';
-      if (finalUsername.isEmpty) {
-        finalUsername =
-            'user_${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
+      if (user == null) {
+        print('register: signUp returned no user. res: $res');
+        return false;
       }
 
-      // try insert profile row
-      await _supabase.from('profiles').insert({
-        'id': user.id,
-        'email': email,
-        'full_name': fullName ?? '',
-        'username': finalUsername,
-        'avatar_url': null,
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
-      });
+      final finalUsername = (username?.trim().isNotEmpty ?? false)
+          ? username!.trim()
+          : 'user_${DateTime.now().millisecondsSinceEpoch % 100000}';
+
+      // coba insert dan tangani errornya
+      try {
+        final insertRes = await _supabase.from('profiles').insert({
+          'id': user.id,
+          'email': email,
+          'username': finalUsername,
+          'avatar_url': null,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        }).select();
+
+        print('profiles insertRes: $insertRes');
+
+        // kalau insertRes null/empty => treat as failure
+        if (insertRes == null) {
+          print('profiles insert returned null — check DB constraints');
+          return false;
+        }
+      } catch (e) {
+        print('profiles insert error: $e');
+        return false;
+      }
 
       return true;
-    } on AuthApiException catch (e) {
-      // supabase auth error
-      print('Auth register error: ${e.message}');
-      return false;
     } catch (e) {
-      print('Register error: $e');
+      print('register error: $e');
       return false;
     }
   }
