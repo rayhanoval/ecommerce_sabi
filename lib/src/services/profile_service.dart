@@ -1,69 +1,93 @@
+// lib/services/profile_service.dart
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
+import 'package:flutter/foundation.dart';
 
 class ProfileService {
-  static final _client = Supabase.instance.client;
+  static final SupabaseClient _client = Supabase.instance.client;
+  static final _storage = Supabase.instance.client.storage;
+  static const _avatarBucket = 'avatars';
+  static final _uuid = Uuid();
 
-  /// Upload avatar file to 'avatars' bucket, return public URL (or null)
-  static Future<String?> uploadAvatar(File file, {String? userId}) async {
+  /// Upload avatar: return {ok:true, url:'...'} or {ok:false, error:'...'}
+  static Future<Map<String, dynamic>> uploadAvatar(
+    File f, {
+    required String userId,
+  }) async {
     try {
-      final uid = userId ?? _client.auth.currentUser?.id;
-      if (uid == null) throw Exception('Not logged in');
+      final ext = f.path.split('.').last;
+      final key = 'avatars/$userId/${_uuid.v4()}.$ext';
 
-      // build remote path: avatars/{userId}/{timestamp}_{filename}
-      final filename = p.basename(file.path);
-      final remotePath =
-          'avatars/$uid/${DateTime.now().millisecondsSinceEpoch}_$filename';
+      final upload = await _storage.from(_avatarBucket).upload(key, f);
+      debugPrint('storage.upload result: $upload');
 
-      // upload file
-      await _client.storage.from('avatars').uploadBinary(
-            remotePath,
-            await file.readAsBytes(),
-            fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
-          );
+      // Try getPublicUrl
+      try {
+        final pub = _storage.from(_avatarBucket).getPublicUrl(key);
 
-      // public URL
-      final publicUrl =
-          _client.storage.from('avatars').getPublicUrl(remotePath);
+        if (pub is String && pub.isNotEmpty) {
+          return {'ok': true, 'url': pub};
+        }
+      } catch (_) {}
 
-      return publicUrl;
+      // fallback signed url
+      try {
+        final signed = await _storage
+            .from(_avatarBucket)
+            .createSignedUrl(key, 60 * 60 * 24);
+
+        if (signed != null && signed is String) {
+          return {'ok': true, 'url': signed};
+        }
+      } catch (_) {}
+
+      return {
+        'ok': false,
+        'error': 'Upload selesai tapi URL tidak ditemukan.'
+      };
     } catch (e) {
-      print('uploadAvatar error: $e');
-      return null;
+      return {'ok': false, 'error': e.toString()};
     }
   }
 
-  /// Update profile row fields, now including: phone, address
-  static Future<bool> updateProfile(
+  /// Upsert profile
+  static Future<Map<String, dynamic>> updateProfile(
     String userId, {
-    String? displayName,
     String? username,
-    String? bio,
+    String? displayName,
     String? avatarUrl,
+    String? bio,
     String? phone,
-    String? address,
+    String? defaultAddress,
+    String? email,
   }) async {
     try {
-      final data = <String, dynamic>{};
+      final payload = {
+        'id': userId,
+        if (username != null) 'username': username,
+        if (displayName != null) 'display_name': displayName,
+        if (avatarUrl != null) 'avatar_url': avatarUrl,
+        if (bio != null) 'bio': bio,
+        if (phone != null) 'phone': phone,
+        if (defaultAddress != null) 'default_address': defaultAddress,
+        if (email != null) 'email': email,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      };
 
-      if (displayName != null) data['display_name'] = displayName;
-      if (username != null) data['username'] = username;
-      if (bio != null) data['bio'] = bio;
-      if (avatarUrl != null) data['avatar_url'] = avatarUrl;
+      debugPrint('profile upsert payload: $payload');
 
-      // NEW FIELDS
-      if (phone != null) data['phone'] = phone;
-      if (address != null) data['address'] = address;
+      final resp = await _client
+          .from('profiles')
+          .upsert(payload, onConflict: 'id')
+          .select()
+          .maybeSingle();
 
-      data['updated_at'] = DateTime.now().toIso8601String();
+      debugPrint('profile upsert resp: $resp');
 
-      await _client.from('profiles').update(data).eq('id', userId);
-
-      return true;
+      return {'ok': true, 'data': resp};
     } catch (e) {
-      print('updateProfile error: $e');
-      return false;
+      return {'ok': false, 'error': e.toString()};
     }
   }
 }

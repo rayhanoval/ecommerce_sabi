@@ -516,8 +516,8 @@ class _ReviewPageState extends State<ReviewPage> {
                             ? Map<String, dynamic>.from(r['profiles'] as Map)
                             : null;
                         final name = profileMap != null
-                            ? (profileMap['full_name'] ??
-                                profileMap['username'] ??
+                            ? (profileMap['display_name'] ??
+                                profileMap['full_name'] ??
                                 'User')
                             : (r['user_id']?.toString().substring(0, 6) ??
                                 'User');
