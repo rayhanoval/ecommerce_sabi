@@ -14,13 +14,13 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  final _client = Supabase.instance.client;
+  final SupabaseClient _client = Supabase.instance.client;
 
-  final _emailCtrl = TextEditingController();
-  final _displayCtrl = TextEditingController();
-  final _bioCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-  final _addressCtrl = TextEditingController();
+  final TextEditingController _displayCtrl = TextEditingController();
+  final TextEditingController _bioCtrl = TextEditingController();
+  final TextEditingController _phoneCtrl = TextEditingController();
+  final TextEditingController _addressCtrl = TextEditingController();
+  final TextEditingController _emailCtrl = TextEditingController();
 
   String? _avatarUrl;
   File? _pickedFile;
@@ -37,7 +37,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
       final user = _client.auth.currentUser;
       if (user == null) return;
 
-      // Ambil row profile berdasarkan user.id
+      _emailCtrl.text = user.email ?? '';
+
       final row = await _client
           .from('profiles')
           .select()
@@ -46,54 +47,45 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       if (row != null) {
         final map = Map<String, dynamic>.from(row as Map);
+
         setState(() {
-          _emailCtrl.text = user.email ?? '';
           _displayCtrl.text = map['display_name'] ?? '';
           _bioCtrl.text = map['bio'] ?? '';
           _phoneCtrl.text = map['phone'] ?? '';
           _addressCtrl.text = map['default_address'] ?? '';
-          _avatarUrl = map['avatar_url'];
+          _avatarUrl = map['avatar_url'] ?? '';
           _pickedFile = null;
         });
       } else {
-        // fallback
         setState(() {
-          _emailCtrl.text = user.email ?? '';
           _avatarUrl = null;
           _pickedFile = null;
         });
       }
-    } catch (e) {
-      debugPrint('loadProfile error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load profile')));
+    } catch (e, st) {
+      debugPrint("loadProfile error: $e\n$st");
     }
   }
 
   Future<void> _pickImage() async {
     try {
-      final p = ImagePicker();
-      final picked = await p.pickImage(
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1200,
         imageQuality: 80,
       );
       if (picked == null) return;
-      setState(() {
-        _pickedFile = File(picked.path);
-      });
+      setState(() => _pickedFile = File(picked.path));
     } catch (e) {
-      debugPrint('pickImage error: $e');
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Failed to pick image')));
+      debugPrint("pickImage error: $e");
     }
   }
 
   Future<void> _save() async {
     final user = _client.auth.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Please login first')));
+      debugPrint("Save error: user not logged in");
       return;
     }
 
@@ -101,23 +93,24 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     String? uploadedUrl = _avatarUrl;
 
-    // Upload avatar jika ada
+    // Upload avatar
     if (_pickedFile != null) {
-      final uploadRes =
-          await ProfileService.uploadAvatar(_pickedFile!, userId: user.id);
+      final res = await ProfileService.uploadAvatarFile(
+        _pickedFile!,
+        userId: user.id,
+      );
 
-      if (uploadRes['ok'] == true && uploadRes['url'] != null) {
-        uploadedUrl = uploadRes['url'];
+      if (res['ok'] == true && res['url'] != null) {
+        final url = res['url'];
+        uploadedUrl = url is String ? url : url.toString();
       } else {
-        final err = uploadRes['error'] ?? 'Unknown upload error';
+        debugPrint("Upload gagal: ${res['error']}");
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Avatar upload failed: $err')));
         return;
       }
     }
 
-    // Upsert profile ke DB
+    // Update profile
     final result = await ProfileService.updateProfile(
       user.id,
       displayName: _displayCtrl.text.trim(),
@@ -125,54 +118,77 @@ class _EditProfilePageState extends State<EditProfilePage> {
       phone: _phoneCtrl.text.trim(),
       defaultAddress: _addressCtrl.text.trim(),
       avatarUrl: uploadedUrl,
-      // Username & email tidak diubah
     );
 
     setState(() => _loading = false);
 
     if (result['ok'] == true) {
-      // evict cache untuk avatar baru
       if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
         try {
           await ImageCacheHelper.evictImageByUrl(uploadedUrl);
         } catch (e) {
-          debugPrint('evictImage error: $e');
+          debugPrint("evictImage error: $e");
         }
       }
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Profile updated')));
-      if (mounted) Navigator.of(context).pop(true);
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
     } else {
-      final err = result['error'] ?? 'Unknown error while updating profile';
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Update failed: $err')));
+      debugPrint("Update profile error: ${result['error']}");
     }
   }
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
     _displayCtrl.dispose();
     _bioCtrl.dispose();
     _phoneCtrl.dispose();
     _addressCtrl.dispose();
+    _emailCtrl.dispose();
     super.dispose();
+  }
+
+  Widget _avatarWidget(double radius) {
+    if (_pickedFile != null) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: FileImage(_pickedFile!),
+        backgroundColor: Colors.white12,
+      );
+    }
+
+    if (_avatarUrl != null && _avatarUrl!.isNotEmpty) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: NetworkImage(_avatarUrl!),
+        onBackgroundImageError: (_, __) {},
+        backgroundColor: Colors.white12,
+      );
+    }
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Colors.white12,
+      child: const Icon(
+        Icons.camera_alt_outlined,
+        color: Colors.white54,
+        size: 28,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final s = MediaQuery.of(context).size;
-
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Edit Profile'),
+        title: const Text("Edit Profile"),
         backgroundColor: Colors.black,
         actions: [
           IconButton(
-            onPressed: _loadProfile,
             icon: const Icon(Icons.refresh),
+            onPressed: _loadProfile,
           ),
         ],
       ),
@@ -186,26 +202,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
               children: [
                 GestureDetector(
                   onTap: _pickImage,
-                  child: CircleAvatar(
-                    radius: 48,
-                    backgroundColor: Colors.white12,
-                    backgroundImage: _pickedFile != null
-                        ? FileImage(_pickedFile!)
-                        : (_avatarUrl != null && _avatarUrl!.isNotEmpty
-                            ? NetworkImage(_avatarUrl!) as ImageProvider
-                            : null),
-                    child: (_pickedFile == null &&
-                            (_avatarUrl == null || _avatarUrl!.isEmpty))
-                        ? const Icon(Icons.camera_alt_outlined,
-                            color: Colors.white54, size: 28)
-                        : null,
-                  ),
+                  child: _avatarWidget(48),
                 ),
                 const SizedBox(height: 12),
                 TextButton(
-                    onPressed: _pickImage, child: const Text('Change avatar')),
+                  onPressed: _pickImage,
+                  child: const Text("Change avatar"),
+                ),
                 const SizedBox(height: 18),
-                const SizedBox(height: 12),
                 TextFormField(
                   controller: _emailCtrl,
                   readOnly: true,
@@ -256,8 +260,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 TextFormField(
                   controller: _addressCtrl,
                   style: const TextStyle(color: Colors.white),
-                  keyboardType: TextInputType.streetAddress,
                   maxLines: 2,
+                  keyboardType: TextInputType.streetAddress,
                   decoration: const InputDecoration(
                     labelText: 'Address',
                     labelStyle: TextStyle(color: Colors.white54),
@@ -274,9 +278,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           backgroundColor: Colors.white,
                           foregroundColor: Colors.black,
                           padding: EdgeInsets.symmetric(
-                              horizontal: s.width * 0.12, vertical: 14),
+                            horizontal: s.width * 0.12,
+                            vertical: 14,
+                          ),
                         ),
-                        child: const Text('Save'),
+                        child: const Text("Save"),
                       ),
               ],
             ),

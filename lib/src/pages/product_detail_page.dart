@@ -4,7 +4,7 @@ import '../models/product.dart';
 import '../pages/login_page.dart';
 import '../pages/checkout_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:ecommerce_sabi/src/widgets/product/product_rating_section.dart';
+import 'package:ecommerce_sabi/src/widgets/product/product_rating_preview.dart';
 
 class ProductDetailPage extends StatelessWidget {
   final Product product;
@@ -301,7 +301,7 @@ class ProductDetailPage extends StatelessWidget {
                       }).toList(),
                     ),
                   ),
-                  ProductRatingSection(product: product),
+                  ProductRatingPreview(product: product),
                   SizedBox(height: screenHeight * 0.06),
                 ]),
               ),

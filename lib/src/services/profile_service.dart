@@ -1,91 +1,86 @@
-// lib/services/profile_service.dart
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-import 'package:flutter/foundation.dart';
-import 'package:ecommerce_sabi/src/services/auth_service.dart';
 
 class ProfileService {
-  static final SupabaseClient _client = Supabase.instance.client;
+  static final _client = Supabase.instance.client;
   static final _storage = Supabase.instance.client.storage;
-  static const _avatarBucket = 'avatars';
-  static final _uuid = Uuid();
+  static const bucket = 'avatars';
 
-  /// Upload avatar: return {ok:true, url:'...'} or {ok:false, error:'...'}
-  static Future<Map<String, dynamic>> uploadAvatar(
-    File f, {
+  /// UPLOAD AVATAR (Mobile / Web SAFE-ish)
+  static Future<Map<String, dynamic>> uploadAvatarFile(
+    File file, {
     required String userId,
   }) async {
     try {
-      final ext = f.path.split('.').last;
-      final key = 'avatars/$userId/avatar.$ext';
+      final path = file.path;
 
-      final upload = await _storage.from(_avatarBucket).upload(key, f);
-      debugPrint('storage.upload result: $upload');
+      // Default ext kalau gagal deteksi
+      String ext = 'jpeg';
 
-      // Try getPublicUrl
-      try {
-        final pub = _storage.from(_avatarBucket).getPublicUrl(key);
-
-        if (pub is String && pub.isNotEmpty) {
-          return {'ok': true, 'url': pub};
+      // Coba ambil ext dari path kalau ada titik
+      final dotIndex = path.lastIndexOf('.');
+      if (dotIndex != -1 && dotIndex < path.length - 1) {
+        final rawExt = path.substring(dotIndex + 1); // setelah "."
+        // Kalau rawExt keliatan kayak ext bener (nggak ada ":" atau "/")
+        if (!rawExt.contains(':') && !rawExt.contains('/')) {
+          ext = rawExt;
         }
-      } catch (_) {}
+      }
 
-      // fallback signed url
-      try {
-        final signed = await _storage
-            .from(_avatarBucket)
-            .createSignedUrl(key, 60 * 60 * 24);
+      final fileName = "${userId}_${const Uuid().v4()}.$ext";
 
-        if (signed != null && signed is String) {
-          return {'ok': true, 'url': signed};
-        }
-      } catch (_) {}
+      // Aman: contentType jadi image/jpeg / image/png / dst, bukan blob:...
+      await _storage.from(bucket).upload(
+            fileName,
+            file,
+            fileOptions: FileOptions(
+              upsert: true,
+              contentType: "image/$ext",
+            ),
+          );
 
-      return {'ok': false, 'error': 'Upload selesai tapi URL tidak ditemukan.'};
+      final publicUrl = _storage.from(bucket).getPublicUrl(fileName);
+
+      return {
+        "ok": true,
+        "url": publicUrl,
+      };
     } catch (e) {
-      return {'ok': false, 'error': e.toString()};
+      return {
+        "ok": false,
+        "error": e.toString(),
+      };
     }
   }
 
-  /// Upsert profile
+  /// UPDATE PROFILE
   static Future<Map<String, dynamic>> updateProfile(
     String userId, {
-    String? username,
     String? displayName,
-    String? avatarUrl,
     String? bio,
     String? phone,
     String? defaultAddress,
-    String? email,
+    String? avatarUrl,
   }) async {
     try {
-      final payload = {
-        'id': userId,
-        if (username != null) 'username': username,
-        if (displayName != null) 'display_name': displayName,
-        if (avatarUrl != null) 'avatar_url': avatarUrl,
-        if (bio != null) 'bio': bio,
-        if (phone != null) 'phone': phone,
-        if (defaultAddress != null) 'default_address': defaultAddress,
-        if (email != null) 'email': email,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      };
-
-      debugPrint('profile upsert payload: $payload');
-
-      final resp = await _client
-          .from('profiles')
-          .upsert(payload, onConflict: 'id')
+      final res = await _client
+          .from("profiles")
+          .upsert({
+            "id": userId,
+            "display_name": displayName,
+            "bio": bio,
+            "phone": phone,
+            "default_address": defaultAddress,
+            "avatar_url": avatarUrl,
+            "updated_at": DateTime.now().toIso8601String(),
+          })
           .select()
           .maybeSingle();
 
-      debugPrint('profile upsert resp: $resp');
-
-      return {'ok': true, 'data': resp};
+      return {"ok": true, "data": res};
     } catch (e) {
-      return {'ok': false, 'error': e.toString()};
+      return {"ok": false, "error": e.toString()};
     }
   }
 }

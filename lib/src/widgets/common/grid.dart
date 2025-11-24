@@ -1,4 +1,3 @@
-// lib/widgets/generic_grid.dart
 import 'package:flutter/material.dart';
 
 typedef GridItemBuilder<T> = Widget Function(BuildContext context, T item, int index);

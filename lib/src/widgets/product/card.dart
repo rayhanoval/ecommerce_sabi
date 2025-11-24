@@ -1,4 +1,3 @@
-// lib/widgets/product/card.dart
 import 'package:flutter/material.dart';
 
 class ProductCard extends StatelessWidget {
