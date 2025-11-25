@@ -64,7 +64,7 @@ class _EditProductPageState extends State<EditProductPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _topBarAndButtons(context, constraints),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
                   const Divider(color: Colors.white70, thickness: 1),
                   const SizedBox(height: 8),
                   Expanded(
@@ -110,73 +110,69 @@ class _EditProductPageState extends State<EditProductPage> {
     );
   }
 
-  // COMBINED TOP BAR & BUTTONS (logo, product button and add new product image button)
   Widget _topBarAndButtons(BuildContext context, BoxConstraints constraints) {
     final maxWidth = constraints.maxWidth;
     final isWide = maxWidth > 600;
 
-    final logoHeight = isWide ? 56.0 : 40.0;
-    final buttonMaxWidth = isWide ? maxWidth * 0.4 : maxWidth * 0.7;
+    final logoHeight = isWide ? 65.0 : 50.0;
+
+    // Product button diperkecil sedikit dari versi sebelumnya
+    final productButtonWidth = isWide ? 120.0 : 105.0;
+    final productButtonHeight = isWide ? 34.0 : 30.0;
+
+    final addButtonSize = isWide ? 30.0 : 26.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Logo Sabi – di tengah
-        Center(
-          child: Image.asset(
-            'assets/images/sabi_login.png',
-            height: logoHeight,
-            fit: BoxFit.contain,
-          ),
+        // LOGO
+        Image.asset(
+          'assets/images/sabi_login.png',
+          height: logoHeight,
+          fit: BoxFit.contain,
         ),
-        SizedBox(height: isWide ? 24 : 16),
 
-        // PRODUCT button – box putih outline, di tengah
-        ConstrainedBox(
-          constraints: BoxConstraints(
-            minWidth: 140,
-            maxWidth: buttonMaxWidth,
-          ),
+        // SPACE antara LOGO dan PRODUCT (ditambah sedikit)
+        SizedBox(height: isWide ? 38 : 50),
+
+        // PRODUCT BUTTON (lebih kecil)
+        SizedBox(
+          width: productButtonWidth,
+          height: productButtonHeight,
           child: OutlinedButton(
             onPressed: () {},
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Colors.white),
+              side: const BorderSide(color: Colors.white, width: 1.3),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
               ),
-              padding: const EdgeInsets.symmetric(vertical: 10),
+              padding: EdgeInsets.zero,
             ),
             child: const Text(
               'PRODUCT',
               style: TextStyle(
                 color: Colors.white,
-                letterSpacing: 1.5,
-                fontWeight: FontWeight.w600,
+                letterSpacing: 1.7,
+                fontWeight: FontWeight.w700,
+                fontSize: 11.5,
               ),
             ),
           ),
         ),
 
-        SizedBox(height: isWide ? 16 : 12),
+        // PRODUCT → ADD NEW PRODUCT (rapat)
+        SizedBox(height: isWide ? 10 : 8),
 
-        // ADD NEW PRODUCT – image button, juga di tengah, lebarnya mirip PRODUCT
-        ConstrainedBox(
-          constraints: BoxConstraints(
-            minWidth: 140,
-            maxWidth: buttonMaxWidth,
-          ),
-          child: InkWell(
-            onTap: () => _openEdit(null),
-            borderRadius: BorderRadius.circular(6),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4.0),
-              child: Image.asset(
-                'assets/images/add_new_product_button.png',
-                height: logoHeight * 0.7,
-                fit: BoxFit.contain,
-              ),
-            ),
+        // ADD NEW PRODUCT icon button
+        IconButton(
+          onPressed: () => _openEdit(null),
+          iconSize: addButtonSize,
+          padding: EdgeInsets.zero,
+          splashRadius: addButtonSize * 0.7,
+          icon: Image.asset(
+            'assets/images/add_new_product_button.png',
+            height: addButtonSize,
+            fit: BoxFit.contain,
           ),
         ),
       ],
