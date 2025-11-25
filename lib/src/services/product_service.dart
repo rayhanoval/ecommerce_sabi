@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/product.dart';
 
@@ -12,8 +13,8 @@ class ProductService {
       final res = await _client
           .from('products')
           .select('*')
-          .match({'is_active': true})        // pengganti eq()
-          .order('created_at');              // SDK kamu mendukung order di select()
+          .match({'is_active': true}) // pengganti eq()
+          .order('created_at'); // SDK kamu mendukung order di select()
 
       return (res as List)
           .map((e) => Product.fromJson(e as Map<String, dynamic>))
@@ -90,7 +91,7 @@ class ProductService {
             'img_url': product.imgUrl,
             'updated_at': DateTime.now().toIso8601String()
           })
-          .match({'id': product.id})     // pengganti eq()
+          .match({'id': product.id}) // pengganti eq()
           .select()
           .maybeSingle();
 
@@ -102,5 +103,29 @@ class ProductService {
       return null;
     }
   }
+
+  // ============================================================
+  // UPLOAD PRODUCT IMAGE
+  // ============================================================
+  static Future<String?> uploadProductImage(File file) async {
+    try {
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final path = 'uploads/$fileName';
+
+      await _client.storage.from('products').upload(
+            path,
+            file,
+            fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
+          );
+
+      final publicUrl = _client.storage.from('products').getPublicUrl(path);
+
+      return publicUrl;
+    } catch (e) {
+      print('uploadProductImage error: $e');
+      return null;
+    }
+  }
 }
+
 Future<List<dynamic>> loadProducts() => ProductService.fetchAllProducts();
