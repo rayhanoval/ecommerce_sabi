@@ -1,18 +1,19 @@
 import 'package:ecommerce_sabi/src/pages/login_page.dart';
 import 'package:ecommerce_sabi/src/pages/user/product_list_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ecommerce_sabi/src/pages/admin/edit_product_page.dart';
-import '../services/auth_service.dart';
+import '../services/auth_repository.dart';
 
-class SplashPage extends StatefulWidget {
+class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
 
   @override
-  State<SplashPage> createState() => _SplashPageState();
+  ConsumerState<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage> {
+class _SplashPageState extends ConsumerState<SplashPage> {
   bool isLoggedIn = false;
 
   @override
@@ -44,7 +45,7 @@ class _SplashPageState extends State<SplashPage> {
     }
 
     // get profile data including role
-    final profile = await AuthService.getCurrentProfile();
+    final profile = await ref.read(authRepositoryProvider).getCurrentProfile();
     final role = profile?['role']?.toString().toLowerCase() ?? '';
 
     if (role == 'admin' || role == 'owner') {

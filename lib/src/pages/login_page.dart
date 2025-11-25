@@ -1,18 +1,19 @@
 import 'package:ecommerce_sabi/src/pages/admin/edit_product_page.dart';
 import 'package:ecommerce_sabi/src/pages/user/product_list_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthException;
-import '../services/auth_service.dart';
+import '../services/auth_repository.dart';
 import 'register_page.dart';
 
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final TextEditingController _emailOrUsernameController =
       TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -76,13 +77,15 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       // 🔥 Setelah dapat email → login
-      final success = await AuthService.login(emailToLogin, password);
+      final success =
+          await ref.read(authRepositoryProvider).login(emailToLogin, password);
 
       setState(() => _loading = false);
 
       if (success) {
         // Fetch user's role from profile
-        final profile = await AuthService.getCurrentProfile();
+        final profile =
+            await ref.read(authRepositoryProvider).getCurrentProfile();
         final role = profile?['role'] ?? 'user';
 
         if (!mounted) return;

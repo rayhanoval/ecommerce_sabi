@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/product.dart';
-import '../../services/product_service.dart';
+import '../../services/product_repository.dart';
 import 'package:ecommerce_sabi/src/widgets/admin/admin_product_row.dart';
 import 'package:ecommerce_sabi/src/pages/admin/edit_product_detail_page.dart';
 
-class EditProductPage extends StatefulWidget {
+class EditProductPage extends ConsumerStatefulWidget {
   const EditProductPage({super.key});
 
   @override
-  State<EditProductPage> createState() => _EditProductPageState();
+  ConsumerState<EditProductPage> createState() => _EditProductPageState();
 }
 
-class _EditProductPageState extends State<EditProductPage> {
+class _EditProductPageState extends ConsumerState<EditProductPage> {
   bool _loading = true;
   List<Product> _products = [];
 
@@ -23,7 +24,7 @@ class _EditProductPageState extends State<EditProductPage> {
 
   Future<void> _loadProducts() async {
     setState(() => _loading = true);
-    final list = await ProductService.fetchAllProducts();
+    final list = await ref.read(productRepositoryProvider).fetchAllProducts();
     if (!mounted) return;
     setState(() {
       _products = list;

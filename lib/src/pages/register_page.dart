@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/auth_repository.dart';
 
-class RegisterPage extends StatefulWidget {
+class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
 
   @override
-  State<RegisterPage> createState() => _RegisterPageState();
+  ConsumerState<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegisterPageState extends State<RegisterPage> {
+class _RegisterPageState extends ConsumerState<RegisterPage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -58,11 +59,11 @@ class _RegisterPageState extends State<RegisterPage> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    final success = await AuthService.register(
-      email,
-      password,
-      username: username, // PENTING: masuk ke kolom username
-    );
+    final success = await ref.read(authRepositoryProvider).register(
+          email,
+          password,
+          username: username, // PENTING: masuk ke kolom username
+        );
 
     setState(() => _loading = false);
 

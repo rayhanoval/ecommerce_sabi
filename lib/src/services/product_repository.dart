@@ -1,20 +1,39 @@
 import 'dart:io';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/product.dart';
 
-class ProductService {
-  static final SupabaseClient _client = Supabase.instance.client;
+final productRepositoryProvider = Provider<ProductRepository>((ref) {
+  return SupabaseProductRepository(Supabase.instance.client);
+});
 
-  // ============================================================
-  // FETCH ALL PRODUCTS (ACTIVE ONLY)
-  // ============================================================
-  static Future<List<Product>> fetchAllProducts() async {
+abstract class ProductRepository {
+  Future<List<Product>> fetchAllProducts();
+  Future<List<Product>> fetchAll();
+  Future<Product?> createProduct({
+    required String name,
+    required double price,
+    required String description,
+    required int stock,
+    required bool isActive,
+    required String imgUrl,
+  });
+  Future<Product?> updateProduct(Product product);
+  Future<String?> uploadProductImage(File file);
+}
+
+class SupabaseProductRepository implements ProductRepository {
+  final SupabaseClient _client;
+
+  SupabaseProductRepository(this._client);
+
+  @override
+  Future<List<Product>> fetchAllProducts() async {
     try {
       final res = await _client
           .from('products')
           .select('*')
-          .match({'is_active': true}) // pengganti eq()
-          .order('created_at'); // SDK kamu mendukung order di select()
+          .match({'is_active': true}).order('created_at');
 
       return (res as List)
           .map((e) => Product.fromJson(e as Map<String, dynamic>))
@@ -25,10 +44,8 @@ class ProductService {
     }
   }
 
-  // ============================================================
-  // FETCH ALL (WITHOUT FILTER)
-  // ============================================================
-  static Future<List<Product>> fetchAll() async {
+  @override
+  Future<List<Product>> fetchAll() async {
     try {
       final res = await _client.from('products').select('*');
 
@@ -41,10 +58,8 @@ class ProductService {
     }
   }
 
-  // ============================================================
-  // CREATE PRODUCT
-  // ============================================================
-  static Future<Product?> createProduct({
+  @override
+  Future<Product?> createProduct({
     required String name,
     required double price,
     required String description,
@@ -75,10 +90,8 @@ class ProductService {
     }
   }
 
-  // ============================================================
-  // UPDATE PRODUCT
-  // ============================================================
-  static Future<Product?> updateProduct(Product product) async {
+  @override
+  Future<Product?> updateProduct(Product product) async {
     try {
       final res = await _client
           .from('products')
@@ -91,7 +104,7 @@ class ProductService {
             'img_url': product.imgUrl,
             'updated_at': DateTime.now().toIso8601String()
           })
-          .match({'id': product.id}) // pengganti eq()
+          .match({'id': product.id})
           .select()
           .maybeSingle();
 
@@ -104,10 +117,8 @@ class ProductService {
     }
   }
 
-  // ============================================================
-  // UPLOAD PRODUCT IMAGE
-  // ============================================================
-  static Future<String?> uploadProductImage(File file) async {
+  @override
+  Future<String?> uploadProductImage(File file) async {
     try {
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
       final path = 'uploads/$fileName';
@@ -127,5 +138,3 @@ class ProductService {
     }
   }
 }
-
-Future<List<dynamic>> loadProducts() => ProductService.fetchAllProducts();

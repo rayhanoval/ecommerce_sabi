@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ecommerce_sabi/src/pages/edit_profile_page.dart';
 import '../../widgets/product/card.dart';
 import '../../widgets/common/grid.dart';
-import '../../services/product_service.dart';
+import '../../services/product_repository.dart';
 import '../login_page.dart';
 import 'product_detail_page.dart';
 import '../../models/product.dart';
 
-class ProductListPage extends StatefulWidget {
+class ProductListPage extends ConsumerStatefulWidget {
   const ProductListPage({super.key});
 
   @override
-  State<ProductListPage> createState() => _ProductListPageState();
+  ConsumerState<ProductListPage> createState() => _ProductListPageState();
 }
 
-class _ProductListPageState extends State<ProductListPage> {
+class _ProductListPageState extends ConsumerState<ProductListPage> {
   bool isLoggedIn = false;
 
   @override
@@ -249,7 +250,7 @@ class _ProductListPageState extends State<ProductListPage> {
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: FutureBuilder<List<dynamic>>(
-            future: loadProducts(),
+            future: ref.read(productRepositoryProvider).fetchAllProducts(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());

@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ecommerce_sabi/src/models/product.dart';
-import 'package:ecommerce_sabi/src/services/product_service.dart';
+import 'package:ecommerce_sabi/src/services/product_repository.dart';
+import 'package:ecommerce_sabi/src/widgets/common/custom_text_field.dart';
 
-class EditProductDetailPage extends StatefulWidget {
+class EditProductDetailPage extends ConsumerStatefulWidget {
   final Product? product; // null = create mode
 
   const EditProductDetailPage({
@@ -15,10 +17,11 @@ class EditProductDetailPage extends StatefulWidget {
   bool get isNew => product == null;
 
   @override
-  State<EditProductDetailPage> createState() => _EditProductDetailPageState();
+  ConsumerState<EditProductDetailPage> createState() =>
+      _EditProductDetailPageState();
 }
 
-class _EditProductDetailPageState extends State<EditProductDetailPage> {
+class _EditProductDetailPageState extends ConsumerState<EditProductDetailPage> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _priceCtrl;
   late final TextEditingController _descCtrl;
@@ -69,8 +72,9 @@ class _EditProductDetailPageState extends State<EditProductDetailPage> {
     setState(() => _saving = true);
 
     try {
+      final repo = ref.read(productRepositoryProvider);
       if (widget.isNew) {
-        final created = await ProductService.createProduct(
+        final created = await repo.createProduct(
           name: name,
           price: price,
           description: desc,
@@ -83,7 +87,7 @@ class _EditProductDetailPageState extends State<EditProductDetailPage> {
         }
       } else {
         final old = widget.product!;
-        final updated = await ProductService.updateProduct(
+        final updated = await repo.updateProduct(
           Product(
             id: old.id,
             name: name,
@@ -124,7 +128,8 @@ class _EditProductDetailPageState extends State<EditProductDetailPage> {
       setState(() => _uploadingImage = true);
 
       final file = File(picked.path);
-      final url = await ProductService.uploadProductImage(file);
+      final url =
+          await ref.read(productRepositoryProvider).uploadProductImage(file);
 
       if (url != null && mounted) {
         setState(() {
@@ -170,24 +175,24 @@ class _EditProductDetailPageState extends State<EditProductDetailPage> {
                   const SizedBox(height: 12),
                   _imagePlaceholder(constraints),
                   const SizedBox(height: 28),
-                  _fieldRow(
+                  CustomTextField(
                     label: 'NAME',
                     controller: _nameCtrl,
                   ),
                   const SizedBox(height: 12),
-                  _fieldRow(
+                  CustomTextField(
                     label: 'PRICE',
                     controller: _priceCtrl,
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 12),
-                  _fieldRow(
+                  CustomTextField(
                     label: 'DESCRIPTION',
                     controller: _descCtrl,
                     maxLines: 4,
                   ),
                   const SizedBox(height: 12),
-                  _fieldRow(
+                  CustomTextField(
                     label: 'STOCK',
                     controller: _stockCtrl,
                     keyboardType: TextInputType.number,
@@ -298,47 +303,6 @@ class _EditProductDetailPageState extends State<EditProductDetailPage> {
                     ),
                   ),
       ),
-    );
-  }
-
-  Widget _fieldRow({
-    required String label,
-    required TextEditingController controller,
-    TextInputType keyboardType = TextInputType.text,
-    int maxLines = 1,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.white, width: 1.6),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: TextField(
-            controller: controller,
-            keyboardType: keyboardType,
-            maxLines: maxLines,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              hintText: label,
-              hintStyle: const TextStyle(
-                color: Colors.white54,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

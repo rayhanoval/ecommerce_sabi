@@ -1,4 +1,19 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  return SupabaseAuthRepository(Supabase.instance.client);
+});
+
+abstract class AuthRepository {
+  Future<bool> register(String email, String password,
+      {String? fullName, String? username});
+  Future<bool> login(String email, String password);
+  Future<void> logout();
+  bool isLoggedIn();
+  Future<Map<String, dynamic>?> getCurrentProfile();
+  Future<bool> updateProfile(Map<String, dynamic> data);
+}
 
 class AuthException implements Exception {
   final String code;
@@ -9,19 +24,20 @@ class AuthException implements Exception {
   String toString() => 'AuthException($code): $message';
 }
 
-class AuthService {
-  static final _supabase = Supabase.instance.client;
+class SupabaseAuthRepository implements AuthRepository {
+  final SupabaseClient _client;
 
-  /// Register user and create a users row with separate display_name and username fields.
-  /// Returns true on success, false on failure.
-  static Future<bool> register(
+  SupabaseAuthRepository(this._client);
+
+  @override
+  Future<bool> register(
     String email,
     String password, {
     String? fullName,
     String? username,
   }) async {
     try {
-      final res = await _supabase.auth.signUp(email: email, password: password);
+      final res = await _client.auth.signUp(email: email, password: password);
       final user = res.user;
       if (user == null) {
         print('register: signUp returned no user. res: $res');
@@ -32,9 +48,8 @@ class AuthService {
           ? username!.trim()
           : 'user_${DateTime.now().millisecondsSinceEpoch % 100000}';
 
-      // coba insert dan tangani errornya
       try {
-        final insertRes = await _supabase.from('users').insert({
+        final insertRes = await _client.from('users').insert({
           'id': user.id,
           'email': email,
           'username': finalUsername,
@@ -43,9 +58,6 @@ class AuthService {
           'updated_at': DateTime.now().toIso8601String(),
         }).select();
 
-        print('users insertRes: $insertRes');
-
-        // kalau insertRes null/empty => treat as failure
         if (insertRes == null) {
           print('users insert returned null — check DB constraints');
           return false;
@@ -62,10 +74,10 @@ class AuthService {
     }
   }
 
-  /// Login
-  static Future<bool> login(String email, String password) async {
+  @override
+  Future<bool> login(String email, String password) async {
     try {
-      final res = await _supabase.auth.signInWithPassword(
+      final res = await _client.auth.signInWithPassword(
         email: email,
         password: password,
       );
@@ -84,31 +96,31 @@ class AuthService {
     }
   }
 
-  /// Logout
-  static Future<void> logout() async {
-    await _supabase.auth.signOut();
+  @override
+  Future<void> logout() async {
+    await _client.auth.signOut();
   }
 
-  /// Is logged in
-  static bool isLoggedIn() {
-    return _supabase.auth.currentSession != null;
+  @override
+  bool isLoggedIn() {
+    return _client.auth.currentSession != null;
   }
 
-  /// Get current profile
-  static Future<Map<String, dynamic>?> getCurrentProfile() async {
-    final user = _supabase.auth.currentUser;
+  @override
+  Future<Map<String, dynamic>?> getCurrentProfile() async {
+    final user = _client.auth.currentUser;
     if (user == null) return null;
     final res =
-        await _supabase.from('users').select().eq('id', user.id).maybeSingle();
+        await _client.from('users').select().eq('id', user.id).maybeSingle();
     return res;
   }
 
-  /// Update profile (helper)
-  static Future<bool> updateProfile(Map<String, dynamic> data) async {
-    final user = _supabase.auth.currentUser;
+  @override
+  Future<bool> updateProfile(Map<String, dynamic> data) async {
+    final user = _client.auth.currentUser;
     if (user == null) return false;
     try {
-      await _supabase.from('users').update({
+      await _client.from('users').update({
         ...data,
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', user.id);
