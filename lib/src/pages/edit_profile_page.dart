@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/profile_service.dart';
 import '../utils/image_cache_helper.dart';
+import 'package:flutter/services.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -181,114 +182,126 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget build(BuildContext context) {
     final s = MediaQuery.of(context).size;
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text("Edit Profile"),
         backgroundColor: Colors.black,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadProfile,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: Colors.black,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+            splashRadius: 20,
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: RefreshIndicator(
+          title: const Text(
+            "Edit Profile",
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+        body: SafeArea(
+            child: RefreshIndicator(
           onRefresh: _loadProfile,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: _avatarWidget(48),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 500,
                 ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: _pickImage,
-                  child: const Text("Change avatar"),
-                ),
-                const SizedBox(height: 18),
-                TextFormField(
-                  controller: _emailCtrl,
-                  readOnly: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    labelStyle: TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white10,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _displayCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Display name',
-                    labelStyle: TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white10,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _bioCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Bio',
-                    labelStyle: TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white10,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _phoneCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone number',
-                    labelStyle: TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white10,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _addressCtrl,
-                  style: const TextStyle(color: Colors.white),
-                  maxLines: 2,
-                  keyboardType: TextInputType.streetAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Address',
-                    labelStyle: TextStyle(color: Colors.white54),
-                    filled: true,
-                    fillColor: Colors.white10,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _loading
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton(
-                        onPressed: _save,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: s.width * 0.12,
-                            vertical: 14,
-                          ),
-                        ),
-                        child: const Text("Save"),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: _pickImage,
+                      child: _avatarWidget(48),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: _pickImage,
+                      child: const Text(
+                        "Change avatar",
+                        style: TextStyle(color: Colors.white),
                       ),
-              ],
+                    ),
+                    const SizedBox(height: 18),
+                    TextFormField(
+                      controller: _emailCtrl,
+                      readOnly: true,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        labelStyle: TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: Colors.white10,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _displayCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Display name',
+                        labelStyle: TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: Colors.white10,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _bioCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Bio',
+                        labelStyle: TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: Colors.white10,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _phoneCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly, // HANYA ANGKA
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'Phone number',
+                        labelStyle: TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: Colors.white10,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _addressCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      maxLines: 2,
+                      keyboardType: TextInputType.streetAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Address',
+                        labelStyle: TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: Colors.white10,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    _loading
+                        ? const CircularProgressIndicator()
+                        : GestureDetector(
+                            onTap: _save,
+                            child: Image.asset(
+                              'assets/images/save_button.png',
+                              width: 220,
+                              height: 120,
+                            ),
+                          ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-    );
+        )));
   }
 }
