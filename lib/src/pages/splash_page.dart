@@ -1,7 +1,9 @@
 import 'package:ecommerce_sabi/src/pages/login_page.dart';
-import 'package:ecommerce_sabi/src/pages/product_list_page.dart';
+import 'package:ecommerce_sabi/src/pages/user/product_list_page.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:ecommerce_sabi/src/pages/admin/edit_product_page.dart';
+import '../services/auth_service.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -30,6 +32,32 @@ class _SplashPageState extends State<SplashPage> {
         setState(() => isLoggedIn = false);
       }
     });
+  }
+
+  Future<void> _handleStartExploring(BuildContext context) async {
+    if (!isLoggedIn) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ProductListPage()),
+      );
+      return;
+    }
+
+    // get profile data including role
+    final profile = await AuthService.getCurrentProfile();
+    final role = profile?['role']?.toString().toLowerCase() ?? '';
+
+    if (role == 'admin' || role == 'owner') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const EditProductPage()),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ProductListPage()),
+      );
+    }
   }
 
   @override
@@ -106,12 +134,8 @@ class _SplashPageState extends State<SplashPage> {
                         width: screenWidth * 0.7,
                         height: screenHeight * 0.15,
                       ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const ProductListPage()),
-                        );
+                      onPressed: () async {
+                        await _handleStartExploring(context);
                       },
                     ),
                   ],

@@ -40,11 +40,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       _emailCtrl.text = user.email ?? '';
 
-      final row = await _client
-          .from('profiles')
-          .select()
-          .eq('id', user.id)
-          .maybeSingle();
+      final row =
+          await _client.from('users').select().eq('id', user.id).maybeSingle();
 
       if (row != null) {
         final map = Map<String, dynamic>.from(row as Map);
@@ -53,7 +50,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           _displayCtrl.text = map['display_name'] ?? '';
           _bioCtrl.text = map['bio'] ?? '';
           _phoneCtrl.text = map['phone'] ?? '';
-          _addressCtrl.text = map['default_address'] ?? '';
+          _addressCtrl.text = map['address'] ?? '';
           _avatarUrl = map['avatar_url'] ?? '';
           _pickedFile = null;
         });
@@ -96,7 +93,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     // Upload avatar
     if (_pickedFile != null) {
-      final res = await ProfileService.uploadAvatarFile(
+      final res = await userservice.uploadAvatarFile(
         _pickedFile!,
         userId: user.id,
       );
@@ -112,7 +109,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
 
     // Update profile
-    final result = await ProfileService.updateProfile(
+    final result = await userservice.updateProfile(
       user.id,
       displayName: _displayCtrl.text.trim(),
       bio: _bioCtrl.text.trim(),

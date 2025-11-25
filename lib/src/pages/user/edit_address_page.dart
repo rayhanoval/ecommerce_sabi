@@ -34,7 +34,7 @@ class _EditAddressPageState extends State<EditAddressPage> {
         });
         return;
       }
-      // Try reading from "addresses" table; fallback to default_address in profiles if table missing
+      // Try reading from "addresses" table; fallback to address in users if table missing
       final res = await _client
           .from('addresses')
           .select()
@@ -49,14 +49,14 @@ class _EditAddressPageState extends State<EditAddressPage> {
                 orElse: () => _addresses.first)['id']
             ?.toString();
       } else {
-        // fallback: try default_address in profiles
+        // fallback: try address in users
         final prof = await _client
-            .from('profiles')
-            .select('default_address, display_name, phone')
+            .from('users')
+            .select('address, display_name, phone')
             .eq('id', user.id)
             .maybeSingle();
         final map = prof != null ? Map<String, dynamic>.from(prof as Map) : {};
-        final def = (map['default_address'] ?? '').toString();
+        final def = (map['address'] ?? '').toString();
         if (def.isNotEmpty) {
           _addresses = [
             {
@@ -94,11 +94,11 @@ class _EditAddressPageState extends State<EditAddressPage> {
           .from('addresses')
           .update({'is_primary': false}).eq('user_id', user.id);
       await _client.from('addresses').update({'is_primary': true}).eq('id', id);
-      // optionally update profiles.default_address for convenience
+      // optionally update users.address for convenience
       final chosen = _addresses.firstWhere((a) => a['id'].toString() == id);
       await _client
-          .from('profiles')
-          .update({'default_address': chosen['address']}).eq('id', user.id);
+          .from('users')
+          .update({'address': chosen['address']}).eq('id', user.id);
       await _fetchAddresses();
       setState(() => _selectedId = id);
     } catch (e) {
@@ -400,10 +400,11 @@ class _AddAddressPageState extends State<_AddAddressPage> {
             .from('addresses')
             .update(payload)
             .eq('id', widget.prefill!['id']);
-        // if is_primary true, set profiles.default_address too
+        // if is_primary true, set users.address too
         if (_isPrimary) {
-          await _client.from('profiles').update(
-              {'default_address': _addressCtrl.text.trim()}).eq('id', user.id);
+          await _client
+              .from('users')
+              .update({'address': _addressCtrl.text.trim()}).eq('id', user.id);
         }
         Navigator.of(context).pop(payload..['id'] = widget.prefill!['id']);
       } else {
@@ -418,8 +419,9 @@ class _AddAddressPageState extends State<_AddAddressPage> {
             : Map<String, dynamic>.from(
                 (inserted as Map).cast<String, dynamic>());
         if (row != null && _isPrimary) {
-          await _client.from('profiles').update(
-              {'default_address': _addressCtrl.text.trim()}).eq('id', user.id);
+          await _client
+              .from('users')
+              .update({'address': _addressCtrl.text.trim()}).eq('id', user.id);
         }
         Navigator.of(context).pop(row);
       }

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/product.dart';
+import '../../models/product.dart';
 
 class ReviewPage extends StatefulWidget {
   final Product product;
@@ -62,7 +62,7 @@ class _ReviewPageState extends State<ReviewPage> {
       final res = await _client
           .from('product_ratings')
           .select(
-              'id, rating, comment, created_at, user_id, profiles(display_name,username,avatar_url)')
+              'id, rating, comment, created_at, user_id, users(display_name,username,avatar_url)')
           .eq('product_id', widget.product.id)
           .order('created_at', ascending: false)
           .limit(200);
@@ -512,8 +512,8 @@ class _ReviewPageState extends State<ReviewPage> {
                           const Divider(color: Colors.white12),
                       itemBuilder: (context, idx) {
                         final r = rows[idx];
-                        final profileMap = (r['profiles'] is Map)
-                            ? Map<String, dynamic>.from(r['profiles'] as Map)
+                        final profileMap = (r['users'] is Map)
+                            ? Map<String, dynamic>.from(r['users'] as Map)
                             : null;
                         final name = profileMap != null
                             ? (profileMap['username'] ??

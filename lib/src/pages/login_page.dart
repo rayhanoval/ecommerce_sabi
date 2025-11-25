@@ -1,4 +1,5 @@
-import 'package:ecommerce_sabi/src/pages/product_list_page.dart';
+import 'package:ecommerce_sabi/src/pages/admin/edit_product_page.dart';
+import 'package:ecommerce_sabi/src/pages/user/product_list_page.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthException;
 import '../services/auth_service.dart';
@@ -56,9 +57,9 @@ class _LoginPageState extends State<LoginPage> {
     try {
       // 🔥 Jika user input username (tidak ada '@')
       if (!input.contains("@")) {
-        // lookup ke table profiles
+        // lookup ke table users
         final res = await Supabase.instance.client
-            .from('profiles')
+            .from('users')
             .select('email')
             .eq('username', input)
             .maybeSingle();
@@ -80,11 +81,29 @@ class _LoginPageState extends State<LoginPage> {
       setState(() => _loading = false);
 
       if (success) {
+        // Fetch user's role from profile
+        final profile = await AuthService.getCurrentProfile();
+        final role = profile?['role'] ?? 'user';
+
         if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const ProductListPage()),
-        );
+
+        if (role == 'user') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProductListPage()),
+          );
+        } else if (role == 'owner' || role == 'admin') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const EditProductPage()),
+          );
+        } else {
+          // Default fallback
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProductListPage()),
+          );
+        }
       }
     } on AuthException catch (e) {
       setState(() {

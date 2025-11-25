@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-class ProfileService {
+class userservice {
   static final _client = Supabase.instance.client;
   static final _storage = Supabase.instance.client.storage;
   static const bucket = 'avatars';
@@ -65,13 +65,13 @@ class ProfileService {
   }) async {
     try {
       final res = await _client
-          .from("profiles")
+          .from("users")
           .upsert({
             "id": userId,
             "display_name": displayName,
             "bio": bio,
             "phone": phone,
-            "default_address": defaultAddress,
+            "address": defaultAddress,
             "avatar_url": avatarUrl,
             "updated_at": DateTime.now().toIso8601String(),
           })

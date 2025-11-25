@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/product.dart';
+import '../../models/product.dart';
 import 'edit_address_page.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -42,14 +42,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     try {
       final resp = await supabase
-          .from('profiles')
-          .select('display_name, default_address')
+          .from('users')
+          .select('display_name, address')
           .eq('id', user.id)
           .maybeSingle();
 
       if (resp != null && mounted) {
         _nameController.text = (resp['display_name'] ?? '').toString();
-        final defaultAddr = (resp['default_address'] ?? '').toString();
+        final defaultAddr = (resp['address'] ?? '').toString();
         _addressController.text = defaultAddr;
         // if you want to preload a selectedAddressRow, you could query addresses table here
         setState(() {});

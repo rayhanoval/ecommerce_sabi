@@ -3,12 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ecommerce_sabi/src/pages/edit_profile_page.dart';
-import '../widgets/product/card.dart';
-import '../widgets/common/grid.dart';
-import '../services/products_service.dart';
-import '../pages/login_page.dart';
-import '../pages/product_detail_page.dart';
-import '../models/product.dart';
+import '../../widgets/product/card.dart';
+import '../../widgets/common/grid.dart';
+import '../../services/product_service.dart';
+import '../login_page.dart';
+import 'product_detail_page.dart';
+import '../../models/product.dart';
 
 class ProductListPage extends StatefulWidget {
   const ProductListPage({super.key});

@@ -12,7 +12,7 @@ class AuthException implements Exception {
 class AuthService {
   static final _supabase = Supabase.instance.client;
 
-  /// Register user and create a profiles row with separate display_name and username fields.
+  /// Register user and create a users row with separate display_name and username fields.
   /// Returns true on success, false on failure.
   static Future<bool> register(
     String email,
@@ -34,7 +34,7 @@ class AuthService {
 
       // coba insert dan tangani errornya
       try {
-        final insertRes = await _supabase.from('profiles').insert({
+        final insertRes = await _supabase.from('users').insert({
           'id': user.id,
           'email': email,
           'username': finalUsername,
@@ -43,15 +43,15 @@ class AuthService {
           'updated_at': DateTime.now().toIso8601String(),
         }).select();
 
-        print('profiles insertRes: $insertRes');
+        print('users insertRes: $insertRes');
 
         // kalau insertRes null/empty => treat as failure
         if (insertRes == null) {
-          print('profiles insert returned null — check DB constraints');
+          print('users insert returned null — check DB constraints');
           return false;
         }
       } catch (e) {
-        print('profiles insert error: $e');
+        print('users insert error: $e');
         return false;
       }
 
@@ -98,11 +98,8 @@ class AuthService {
   static Future<Map<String, dynamic>?> getCurrentProfile() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return null;
-    final res = await _supabase
-        .from('profiles')
-        .select()
-        .eq('id', user.id)
-        .maybeSingle();
+    final res =
+        await _supabase.from('users').select().eq('id', user.id).maybeSingle();
     return res;
   }
 
@@ -111,7 +108,7 @@ class AuthService {
     final user = _supabase.auth.currentUser;
     if (user == null) return false;
     try {
-      await _supabase.from('profiles').update({
+      await _supabase.from('users').update({
         ...data,
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', user.id);

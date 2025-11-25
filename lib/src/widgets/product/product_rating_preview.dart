@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ecommerce_sabi/src/models/product.dart';
-import 'package:ecommerce_sabi/src/pages/review_page.dart';
+import 'package:ecommerce_sabi/src/pages/user/review_page.dart';
 
 class ProductRatingPreview extends StatefulWidget {
   final Product product;
@@ -54,7 +54,7 @@ class _ProductRatingPreviewState extends State<ProductRatingPreview> {
       final res = await _client
           .from('product_ratings')
           .select(
-              'id, rating, comment, created_at, user_id, profiles(display_name,username,avatar_url)')
+              'id, rating, comment, created_at, user_id, users(display_name,username,avatar_url)')
           .eq('product_id', widget.product.id)
           .order('created_at', ascending: false)
           .limit(10); // fetch some rows to compute avg/count, we'll show top 3
@@ -279,8 +279,8 @@ class _ProductRatingPreviewState extends State<ProductRatingPreview> {
                             style: TextStyle(color: Colors.white54)))
                   else
                     ...recent.map((r) {
-                      final profile = (r['profiles'] is Map)
-                          ? Map<String, dynamic>.from(r['profiles'] as Map)
+                      final profile = (r['users'] is Map)
+                          ? Map<String, dynamic>.from(r['users'] as Map)
                           : null;
                       final name = profile != null
                           ? (profile['display_name'] ??
