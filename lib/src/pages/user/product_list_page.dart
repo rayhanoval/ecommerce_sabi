@@ -48,8 +48,9 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
 
   String _getName(dynamic item) {
     if (item == null) return '';
-    if (item is Map)
+    if (item is Map) {
       return item['name']?.toString() ?? item['title']?.toString() ?? '';
+    }
     try {
       return item.name?.toString() ?? '';
     } catch (_) {
@@ -77,9 +78,10 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
 
   String _getImageUrl(dynamic item) {
     if (item == null) return '';
-    if (item is Map)
+    if (item is Map) {
       return (item['img_url'] ?? item['imgUrl'] ?? item['image'] ?? '')
           .toString();
+    }
     try {
       return item.imgUrl?.toString() ?? item.image?.toString() ?? '';
     } catch (_) {

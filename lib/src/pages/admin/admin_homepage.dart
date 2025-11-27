@@ -28,18 +28,22 @@ class _AdminHomepageState extends ConsumerState<AdminHomepage> {
   }
 
   void _fetchProducts() async {
+    final session = Supabase.instance.client.auth.currentSession;
     final profile = await ref.read(authRepositoryProvider).getCurrentProfile();
     final role = profile?['role']?.toString().toLowerCase() ?? '';
     final repo = ref.read(productRepositoryProvider);
     final fetched = await repo.fetchLimitedProduct();
-    setState(() {
-      _role = role;
-      products = fetched;
-      isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        isLoggedIn = session != null;
+        _role = role;
+        products = fetched;
+        isLoading = false;
+      });
+    }
   }
 
-  bool isLoggedIn = true; // TODO: Initialize based on actual auth state
+  bool isLoggedIn = false;
 
   @override
   Widget build(BuildContext context) {
@@ -84,10 +88,12 @@ class _AdminHomepageState extends ConsumerState<AdminHomepage> {
               onPressed: () async {
                 await Supabase.instance.client.auth.signOut();
                 setState(() => isLoggedIn = false);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SplashPage()),
-                );
+                if (context.mounted) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SplashPage()),
+                  );
+                }
               },
               icon: const Icon(Icons.logout_outlined),
               color: Colors.white70,

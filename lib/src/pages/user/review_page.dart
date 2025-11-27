@@ -68,10 +68,8 @@ class _ReviewPageState extends State<ReviewPage> {
           .limit(200);
 
       final rows = <Map<String, dynamic>>[];
-      if (res is List) {
-        for (var e in res) {
-          if (e is Map) rows.add(Map<String, dynamic>.from(e));
-        }
+      for (var e in res) {
+        rows.add(Map<String, dynamic>.from(e));
       }
 
       if (_controller != null && !_controller!.isClosed) _controller!.add(rows);
@@ -98,7 +96,7 @@ class _ReviewPageState extends State<ReviewPage> {
       return;
     }
 
-    final userId = session!.user.id;
+    final userId = session.user.id;
 
     try {
       final reviewRes = await _client
@@ -113,10 +111,10 @@ class _ReviewPageState extends State<ReviewPage> {
           await _client.from('orders').select('id').eq('user_id', userId);
 
       bool hasPurchased = false;
-      if (ordersResp is List && ordersResp.isNotEmpty) {
+      if (ordersResp.isNotEmpty) {
         final orderIds = <String>[];
         for (var o in ordersResp) {
-          if (o is Map && o['id'] != null) orderIds.add(o['id'].toString());
+          if (o['id'] != null) orderIds.add(o['id'].toString());
         }
 
         if (orderIds.isNotEmpty) {
@@ -125,9 +123,9 @@ class _ReviewPageState extends State<ReviewPage> {
               .select('order_id, product_id')
               .eq('product_id', widget.product.id);
 
-          if (oiResp is List) {
+          if (oiResp.isNotEmpty) {
             for (var it in oiResp) {
-              if (it is Map && it['order_id'] != null) {
+              if (it['order_id'] != null) {
                 final oid = it['order_id'].toString();
                 if (orderIds.contains(oid)) {
                   hasPurchased = true;
@@ -184,12 +182,16 @@ class _ReviewPageState extends State<ReviewPage> {
 
       _commentController.clear();
       setState(() => _rating = 5);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Review submitted')));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Review submitted')));
+      }
     } catch (e) {
       debugPrint('submit error: $e');
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Failed to submit review: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to submit review: $e')));
+      }
     } finally {
       setState(() => _isSubmitting = false);
     }
@@ -293,7 +295,7 @@ class _ReviewPageState extends State<ReviewPage> {
         title: widget.appBarAsset != null
             ? Image.asset(widget.appBarAsset!, height: 36, fit: BoxFit.contain)
             : const Text('Ratings & Reviews',
-                style: const TextStyle(color: Colors.white)),
+                style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.black,
         elevation: 0,
         centerTitle: true,
@@ -328,8 +330,9 @@ class _ReviewPageState extends State<ReviewPage> {
                                     : int.tryParse(
                                             (r['rating'] ?? '').toString()) ??
                                         0;
-                                if (rv >= 1 && rv <= 5)
+                                if (rv >= 1 && rv <= 5) {
                                   counts[rv] = counts[rv]! + 1;
+                                }
                               }
                               final total =
                                   counts.values.fold<int>(0, (a, b) => a + b);

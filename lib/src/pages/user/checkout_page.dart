@@ -25,10 +25,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final TextEditingController _addressController = TextEditingController();
 
   String _shippingMethod = "Regular";
-  String _paymentMethod = "Cash On Delivery";
+  final String _paymentMethod = "Cash On Delivery";
   bool _isLoading = false;
-
-  Map<String, dynamic>? _selectedAddressRow; // store selected address row
 
   @override
   void initState() {
@@ -119,9 +117,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
           : double.tryParse((prod['price'] ?? '0').toString()) ?? 0.0;
 
       if (currentStock < qty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Stok tidak cukup (tersisa $currentStock)')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Stok tidak cukup (tersisa $currentStock)')),
+          );
+        }
         return;
       }
 
@@ -167,8 +167,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
     } catch (e) {
       final msg = e is PostgrestException ? e.message : e.toString();
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Gagal membuat order: $msg')));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Gagal membuat order: $msg')));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -189,7 +191,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     if (selected != null && mounted) {
       setState(() {
-        _selectedAddressRow = selected;
         _addressController.text = (selected['address'] ?? '').toString();
         _nameController.text =
             (selected['name'] ?? _nameController.text).toString();
@@ -370,8 +371,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: _shippingMethod,
+                                  child: InputDecorator(
                                     decoration: const InputDecoration(
                                       filled: true,
                                       fillColor: Colors.white10,
@@ -381,21 +381,27 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                       contentPadding: EdgeInsets.symmetric(
                                           horizontal: 12, vertical: 4),
                                     ),
-                                    dropdownColor: Colors.black,
-                                    items: const [
-                                      DropdownMenuItem(
-                                          value: 'Regular',
-                                          child: Text('Regular',
-                                              style: TextStyle(
-                                                  color: Colors.white))),
-                                      DropdownMenuItem(
-                                          value: 'Express',
-                                          child: Text('Express',
-                                              style: TextStyle(
-                                                  color: Colors.white))),
-                                    ],
-                                    onChanged: (v) => setState(
-                                        () => _shippingMethod = v ?? 'Regular'),
+                                    child: DropdownButtonHideUnderline(
+                                      child: DropdownButton<String>(
+                                        value: _shippingMethod,
+                                        dropdownColor: Colors.black,
+                                        isExpanded: true,
+                                        items: const [
+                                          DropdownMenuItem(
+                                              value: 'Regular',
+                                              child: Text('Regular',
+                                                  style: TextStyle(
+                                                      color: Colors.white))),
+                                          DropdownMenuItem(
+                                              value: 'Express',
+                                              child: Text('Express',
+                                                  style: TextStyle(
+                                                      color: Colors.white))),
+                                        ],
+                                        onChanged: (v) => setState(() =>
+                                            _shippingMethod = v ?? 'Regular'),
+                                      ),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 12),

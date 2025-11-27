@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-class userservice {
+class ProfileService {
   static final _client = Supabase.instance.client;
   static final _storage = Supabase.instance.client.storage;
   static const bucket = 'avatars';

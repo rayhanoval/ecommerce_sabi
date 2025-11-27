@@ -93,7 +93,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     // Upload avatar
     if (_pickedFile != null) {
-      final res = await userservice.uploadAvatarFile(
+      final res = await ProfileService.uploadAvatarFile(
         _pickedFile!,
         userId: user.id,
       );
@@ -109,7 +109,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
 
     // Update profile
-    final result = await userservice.updateProfile(
+    final result = await ProfileService.updateProfile(
       user.id,
       displayName: _displayCtrl.text.trim(),
       bio: _bioCtrl.text.trim(),
@@ -177,7 +177,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final s = MediaQuery.of(context).size;
     return Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(

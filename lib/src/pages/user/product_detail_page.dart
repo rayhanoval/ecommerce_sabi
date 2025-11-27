@@ -66,7 +66,7 @@ class ProductDetailPage extends StatelessWidget {
     final imageMaxHeight =
         (screenHeight * 0.28).clamp(180.0, 400.0); // smaller product image
     final productImageWidth = screenWidth * 0.7; // narrower width
-    final logoHeight = (screenWidth * 0.09).clamp(20.0, 36.0); // smaller logo
+
     final buttonHeight = (screenWidth * 0.1).clamp(36.0, 56.0);
     final gapTitleButtons = screenHeight * 0.03;
     final gapButtonsDescription = screenHeight * 0.04;
@@ -232,7 +232,7 @@ class ProductDetailPage extends StatelessWidget {
                           height: buttonHeight * 0.9,
                           margin: EdgeInsets.symmetric(
                               horizontal: screenWidth * 0.03),
-                          color: Colors.white.withOpacity(0.3),
+                          color: Colors.white.withValues(alpha: 0.3),
                         ),
 
                         // ADD TO BAG
@@ -270,7 +270,7 @@ class ProductDetailPage extends StatelessWidget {
                       child: Text(
                         'DESCRIPTION:',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 10,
                           letterSpacing: 2,
                           fontWeight: FontWeight.bold,

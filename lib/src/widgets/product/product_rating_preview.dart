@@ -60,14 +60,8 @@ class _ProductRatingPreviewState extends State<ProductRatingPreview> {
           .limit(10); // fetch some rows to compute avg/count, we'll show top 3
 
       final rows = <Map<String, dynamic>>[];
-      if (res is List) {
-        for (final item in res) {
-          if (item is Map<String, dynamic>) {
-            rows.add(item);
-          } else if (item is Map) {
-            rows.add(Map<String, dynamic>.from(item));
-          }
-        }
+      for (final item in res) {
+        rows.add(Map<String, dynamic>.from(item));
       }
 
       if (_controller != null && !_controller!.isClosed) _controller!.add(rows);
@@ -134,10 +128,14 @@ class _ProductRatingPreviewState extends State<ProductRatingPreview> {
         for (var r in rows) {
           final v = r['rating'];
           int rv = 0;
-          if (v is int)
+          if (v is int) {
             rv = v;
-          else if (v is String) rv = int.tryParse(v) ?? 0;
-          if (rv >= 1 && rv <= 5) counts[rv] = counts[rv]! + 1;
+          } else if (v is String) {
+            rv = int.tryParse(v) ?? 0;
+          }
+          if (rv >= 1 && rv <= 5) {
+            counts[rv] = counts[rv]! + 1;
+          }
         }
         final total = counts.values.fold<int>(0, (a, b) => a + b);
         final avg = total > 0
@@ -147,7 +145,7 @@ class _ProductRatingPreviewState extends State<ProductRatingPreview> {
                 total
             : 0.0;
 
-        final recent = rows.take(3).toList(); // show 3 latest only
+        final recent = rows.take(3); // show 3 latest only
 
         Widget buildBar(int star) {
           final cnt = counts[star] ?? 0;
@@ -349,7 +347,7 @@ class _ProductRatingPreviewState extends State<ProductRatingPreview> {
                           ],
                         ),
                       );
-                    }).toList(),
+                    }),
                 ],
               ),
             ),

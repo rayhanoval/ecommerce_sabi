@@ -12,7 +12,7 @@ class _EditAddressPageState extends State<EditAddressPage> {
   final _client = Supabase.instance.client;
   List<Map<String, dynamic>> _addresses = [];
   String? _selectedId;
-  bool _loading = false;
+
   bool _fetching = true;
 
   @override
@@ -42,7 +42,7 @@ class _EditAddressPageState extends State<EditAddressPage> {
           .order('is_primary', ascending: false)
           .order('created_at', ascending: false);
 
-      if (res is List && res.isNotEmpty) {
+      if (res.isNotEmpty) {
         _addresses = (res).map((e) => Map<String, dynamic>.from(e)).toList();
         _selectedId = _addresses
             .firstWhere((a) => a['is_primary'] == true,
@@ -87,7 +87,6 @@ class _EditAddressPageState extends State<EditAddressPage> {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
-    setState(() => _loading = true);
     try {
       // set all to false then set chosen to true
       await _client
@@ -103,23 +102,19 @@ class _EditAddressPageState extends State<EditAddressPage> {
       setState(() => _selectedId = id);
     } catch (e) {
       debugPrint('setPrimary error: $e');
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+    } finally {}
   }
 
   Future<void> _deleteAddress(String id) async {
     final user = _client.auth.currentUser;
     if (user == null) return;
-    setState(() => _loading = true);
+
     try {
       await _client.from('addresses').delete().eq('id', id);
       await _fetchAddresses();
     } catch (e) {
       debugPrint('deleteAddress error: $e');
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+    } finally {}
   }
 
   Future<void> _openAddAddress() async {
@@ -199,127 +194,103 @@ class _EditAddressPageState extends State<EditAddressPage> {
                             a['is_primary']?.toString() == 'true';
                         final tag = a['tag']?.toString();
 
-                        return InkWell(
-                          onTap: () {
-                            // select and return chosen address
+                        return RadioListTile<String>(
+                          value: id,
+                          // ignore: deprecated_member_use
+                          groupValue: _selectedId,
+                          // ignore: deprecated_member_use
+                          onChanged: (v) async {
+                            if (v == null) return;
+                            if (id == 'profile_default') {
+                              setState(() => _selectedId = id);
+                              Navigator.of(context).pop(a);
+                              return;
+                            }
+                            await _setPrimary(id);
+                            if (!mounted) return;
                             Navigator.of(context).pop(a);
                           },
-                          child: Row(
+                          activeColor: accent,
+                          contentPadding: EdgeInsets.zero,
+                          title: Row(children: [
+                            Expanded(
+                                child: Text(name.isNotEmpty ? name : 'Nama',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold))),
+                            TextButton(
+                                onPressed: () {
+                                  Navigator.of(context)
+                                      .push(MaterialPageRoute(
+                                          builder: (_) =>
+                                              _AddAddressPage(prefill: a)))
+                                      .then((_) => _fetchAddresses());
+                                },
+                                child: const Text('Ubah',
+                                    style: TextStyle(color: Colors.white70))),
+                          ]),
+                          subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Radio<String>(
-                                value: id,
-                                groupValue: _selectedId,
-                                onChanged: (v) async {
-                                  if (v == null) return;
-                                  // if it's special profile_default id, just set local selection
-                                  if (id == 'profile_default') {
-                                    setState(() => _selectedId = id);
-                                    Navigator.of(context).pop(a);
-                                    return;
-                                  }
-                                  await _setPrimary(id);
-                                  Navigator.of(context).pop(a);
-                                },
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(children: [
-                                      Expanded(
-                                          child: Text(
-                                              name.isNotEmpty ? name : 'Nama',
-                                              style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight:
-                                                      FontWeight.bold))),
-                                      TextButton(
-                                          onPressed: () {
-                                            // TODO: navigate to edit single address page (not implemented) - for now open add page with prefill
-                                            Navigator.of(context)
-                                                .push(MaterialPageRoute(
-                                                    builder: (_) =>
-                                                        _AddAddressPage(
-                                                            prefill: a)))
-                                                .then((_) => _fetchAddresses());
-                                          },
-                                          child: const Text('Ubah',
-                                              style: TextStyle(
-                                                  color: Colors.white70))),
-                                    ]),
-                                    if (phone.isNotEmpty)
-                                      Text(phone,
-                                          style: const TextStyle(
-                                              color: Colors.white70)),
-                                    const SizedBox(height: 6),
-                                    Text(address,
-                                        style: const TextStyle(
-                                            color: Colors.white70)),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        if (isPrimary)
-                                          Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4),
-                                              decoration: BoxDecoration(
-                                                  color: accent,
-                                                  borderRadius:
-                                                      BorderRadius.circular(6)),
-                                              child: const Text('Utama',
-                                                  style: TextStyle(
-                                                      color: Colors.black,
-                                                      fontSize: 12))),
-                                        const SizedBox(width: 6),
-                                        _tagChip(tag),
-                                        const Spacer(),
-                                        if (id != 'profile_default')
-                                          IconButton(
-                                            icon: const Icon(
-                                                Icons.delete_outline,
-                                                color: Colors.white54),
-                                            onPressed: () async {
-                                              final confirm =
-                                                  await showDialog<bool>(
-                                                context: context,
-                                                builder: (_) => AlertDialog(
-                                                  backgroundColor: Colors.black,
-                                                  title: const Text(
-                                                      'Hapus alamat?',
-                                                      style: TextStyle(
-                                                          color: Colors.white)),
-                                                  actions: [
-                                                    TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.of(
-                                                                    context)
-                                                                .pop(false),
-                                                        child: const Text(
-                                                            'Batal')),
-                                                    TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.of(
-                                                                    context)
-                                                                .pop(true),
-                                                        child: const Text(
-                                                            'Hapus')),
-                                                  ],
-                                                ),
-                                              );
-                                              if (confirm == true) {
-                                                await _deleteAddress(id);
-                                              }
-                                            },
-                                          )
-                                      ],
+                              if (phone.isNotEmpty)
+                                Text(phone,
+                                    style:
+                                        const TextStyle(color: Colors.white70)),
+                              const SizedBox(height: 6),
+                              Text(address,
+                                  style:
+                                      const TextStyle(color: Colors.white70)),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  if (isPrimary)
+                                    Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                            color: accent,
+                                            borderRadius:
+                                                BorderRadius.circular(6)),
+                                        child: const Text('Utama',
+                                            style: TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 12))),
+                                  const SizedBox(width: 6),
+                                  _tagChip(tag),
+                                  const Spacer(),
+                                  if (id != 'profile_default')
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline,
+                                          color: Colors.white54),
+                                      onPressed: () async {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (_) => AlertDialog(
+                                            backgroundColor: Colors.black,
+                                            title: const Text('Hapus alamat?',
+                                                style: TextStyle(
+                                                    color: Colors.white)),
+                                            actions: [
+                                              TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.of(context)
+                                                          .pop(false),
+                                                  child: const Text('Batal')),
+                                              TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.of(context)
+                                                          .pop(true),
+                                                  child: const Text('Hapus')),
+                                            ],
+                                          ),
+                                        );
+                                        if (confirm == true) {
+                                          await _deleteAddress(id);
+                                        }
+                                      },
                                     )
-                                  ],
-                                ),
-                              ),
+                                ],
+                              )
                             ],
                           ),
                         );
@@ -406,7 +377,9 @@ class _AddAddressPageState extends State<_AddAddressPage> {
               .from('users')
               .update({'address': _addressCtrl.text.trim()}).eq('id', user.id);
         }
-        Navigator.of(context).pop(payload..['id'] = widget.prefill!['id']);
+        if (mounted) {
+          Navigator.of(context).pop(payload..['id'] = widget.prefill!['id']);
+        }
       } else {
         // insert
         final inserted = await _client
@@ -423,12 +396,14 @@ class _AddAddressPageState extends State<_AddAddressPage> {
               .from('users')
               .update({'address': _addressCtrl.text.trim()}).eq('id', user.id);
         }
-        Navigator.of(context).pop(row);
+        if (mounted) Navigator.of(context).pop(row);
       }
     } catch (e) {
       debugPrint('save address error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gagal menyimpan alamat')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal menyimpan alamat')));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

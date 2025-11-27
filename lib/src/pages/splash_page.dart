@@ -5,7 +5,7 @@ import 'package:ecommerce_sabi/src/pages/user/product_list_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:ecommerce_sabi/src/pages/admin/edit_product_page.dart';
+
 import '../services/auth_repository.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
@@ -39,16 +39,20 @@ class _SplashPageState extends ConsumerState<SplashPage> {
 
   Future<void> _handleStartExploring(BuildContext context) async {
     if (!isLoggedIn) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const ProductListPage()),
-      );
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ProductListPage()),
+        );
+      }
       return;
     }
 
     // get profile data including role
     final profile = await ref.read(authRepositoryProvider).getCurrentProfile();
     final role = profile?['role']?.toString().toLowerCase() ?? '';
+
+    if (!context.mounted) return;
 
     if (role == 'admin' || role == 'owner') {
       Navigator.push(
@@ -65,9 +69,6 @@ class _SplashPageState extends ConsumerState<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(

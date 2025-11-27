@@ -40,7 +40,7 @@ class SupabaseAuthRepository implements AuthRepository {
       final res = await _client.auth.signUp(email: email, password: password);
       final user = res.user;
       if (user == null) {
-        print('register: signUp returned no user. res: $res');
+        // debugPrint('register: signUp returned no user. res: $res');
         return false;
       }
 
@@ -49,7 +49,7 @@ class SupabaseAuthRepository implements AuthRepository {
           : 'user_${DateTime.now().millisecondsSinceEpoch % 100000}';
 
       try {
-        final insertRes = await _client.from('users').insert({
+        await _client.from('users').insert({
           'id': user.id,
           'email': email,
           'username': finalUsername,
@@ -57,19 +57,14 @@ class SupabaseAuthRepository implements AuthRepository {
           'created_at': DateTime.now().toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
         }).select();
-
-        if (insertRes == null) {
-          print('users insert returned null — check DB constraints');
-          return false;
-        }
       } catch (e) {
-        print('users insert error: $e');
+        // debugPrint('users insert error: $e');
         return false;
       }
 
       return true;
     } catch (e) {
-      print('register error: $e');
+      // debugPrint('register error: $e');
       return false;
     }
   }
@@ -126,7 +121,7 @@ class SupabaseAuthRepository implements AuthRepository {
       }).eq('id', user.id);
       return true;
     } catch (e) {
-      print('updateProfile error: $e');
+      // debugPrint('updateProfile error: $e');
       return false;
     }
   }
