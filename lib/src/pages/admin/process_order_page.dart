@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:ecommerce_sabi/src/pages/admin/process_order_detail_page.dart';
 
 class ProcessOrderPage extends StatefulWidget {
   const ProcessOrderPage({super.key});
@@ -69,17 +70,25 @@ class _ProcessOrderPageState extends State<ProcessOrderPage> {
 
     setState(() => _isProcessing = true);
     try {
-      await _client
-          .from('orders')
-          .update({'status': 'shipped'}) // or 'processing'
-          .filter('id', 'in', _selectedOrderIds.toList());
+      // Update status to 'processing'
+      await _client.from('orders').update({'status': 'processing'}).filter(
+          'id', 'in', _selectedOrderIds.toList());
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('${_selectedOrderIds.length} orders processed')),
+        // Navigate to detail page
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProcessOrderDetailPage(
+              orderIds: _selectedOrderIds.toList(),
+            ),
+          ),
         );
-        _fetchOrders(); // Refresh list
+
+        // Refresh list if orders were marked as shipped
+        if (result == true) {
+          _fetchOrders();
+        }
       }
     } catch (e) {
       debugPrint('Error processing orders: $e');
