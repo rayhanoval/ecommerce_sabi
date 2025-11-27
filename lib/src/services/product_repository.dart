@@ -20,6 +20,7 @@ abstract class ProductRepository {
   });
   Future<Product?> updateProduct(Product product);
   Future<String?> uploadProductImage(File file);
+  Future<bool> deleteProduct(String id);
 }
 
 class SupabaseProductRepository implements ProductRepository {
@@ -135,6 +136,17 @@ class SupabaseProductRepository implements ProductRepository {
     } catch (e) {
       print('uploadProductImage error: $e');
       return null;
+    }
+  }
+
+  @override
+  Future<bool> deleteProduct(String id) async {
+    try {
+      await _client.from('products').delete().match({'id': id});
+      return true;
+    } catch (e) {
+      print('deleteProduct error: $e');
+      return false;
     }
   }
 }

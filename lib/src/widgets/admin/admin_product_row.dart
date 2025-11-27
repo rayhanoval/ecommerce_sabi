@@ -5,11 +5,13 @@ import 'package:ecommerce_sabi/src/models/product.dart';
 class AdminProductRow extends StatelessWidget {
   final Product product;
   final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   const AdminProductRow({
     super.key,
     required this.product,
     required this.onEdit,
+    required this.onDelete,
   });
 
   String _rupiah(double value) {
@@ -110,6 +112,28 @@ class AdminProductRow extends StatelessWidget {
                 ),
                 child: const Text(
                   'EDIT',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: isWide ? 90 : 70,
+              child: ElevatedButton(
+                onPressed: onDelete,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                child: const Text(
+                  'DELETE',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 11,
