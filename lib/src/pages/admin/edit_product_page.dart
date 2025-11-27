@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../models/product.dart';
 import '../../services/product_repository.dart';
-import '../../services/auth_repository.dart';
 import 'package:ecommerce_sabi/src/widgets/admin/admin_product_row.dart';
 import 'package:ecommerce_sabi/src/pages/admin/edit_product_detail_page.dart';
 
@@ -17,8 +15,6 @@ class EditProductPage extends ConsumerStatefulWidget {
 class _EditProductPageState extends ConsumerState<EditProductPage> {
   bool _loading = true;
   List<Product> _products = [];
-  String _role = '';
-  bool _showAll = false;
 
   @override
   void initState() {
@@ -28,13 +24,10 @@ class _EditProductPageState extends ConsumerState<EditProductPage> {
 
   Future<void> _loadData() async {
     setState(() => _loading = true);
-    final profile = await ref.read(authRepositoryProvider).getCurrentProfile();
-    final role = profile?['role']?.toString().toLowerCase() ?? '';
     final list = await ref.read(productRepositoryProvider).fetchAllProducts();
 
     if (!mounted) return;
     setState(() {
-      _role = role;
       _products = list;
       _loading = false;
     });
@@ -116,66 +109,44 @@ class _EditProductPageState extends ConsumerState<EditProductPage> {
                 children: [
                   _topBarAndButtons(context, constraints),
                   const SizedBox(height: 8),
-                  if (_role != 'admin') ...[
-                    const Divider(color: Colors.white70, thickness: 1),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: _loading
-                          ? const Center(
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                              ),
-                            )
-                          : RefreshIndicator(
-                              onRefresh: _loadProducts,
+                  const Divider(color: Colors.white70, thickness: 1),
+                  Expanded(
+                    child: _loading
+                        ? const Center(
+                            child: CircularProgressIndicator(
                               color: Colors.white,
-                              backgroundColor: Colors.black,
-                              child: _products.isEmpty
-                                  ? const Center(
-                                      child: Text(
-                                        'No products yet',
-                                        style: TextStyle(color: Colors.white70),
-                                      ),
-                                    )
-                                  : ListView.separated(
-                                      physics:
-                                          const AlwaysScrollableScrollPhysics(),
-                                      itemCount: _showAll
-                                          ? _products.length
-                                          : (_products.length > 5
-                                              ? 5
-                                              : _products.length),
-                                      separatorBuilder: (_, __) =>
-                                          const SizedBox(height: 24),
-                                      itemBuilder: (context, index) {
-                                        final p = _products[index];
-                                        return AdminProductRow(
-                                          product: p,
-                                          onEdit: () => _openEdit(p),
-                                          onDelete: () => _deleteProduct(p),
-                                        );
-                                      },
+                            ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _loadProducts,
+                            color: Colors.white,
+                            backgroundColor: Colors.black,
+                            child: _products.isEmpty
+                                ? const Center(
+                                    child: Text(
+                                      'No products yet',
+                                      style: TextStyle(color: Colors.white70),
                                     ),
-                            ),
-                    ),
-                    if (!_showAll && _products.length > 5)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 16.0),
-                        child: Center(
-                          child: TextButton(
-                            onPressed: () => setState(() => _showAll = true),
-                            child: Text(
-                              'VIEW ALL',
-                              style: GoogleFonts.montserrat(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
+                                  )
+                                : ListView.separated(
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    itemCount: _products.length,
+                                    padding: const EdgeInsets.only(
+                                        top: 8, bottom: 16),
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 24),
+                                    itemBuilder: (context, index) {
+                                      final p = _products[index];
+                                      return AdminProductRow(
+                                        product: p,
+                                        onEdit: () => _openEdit(p),
+                                        onDelete: () => _deleteProduct(p),
+                                      );
+                                    },
+                                  ),
                           ),
-                        ),
-                      ),
-                  ],
+                  ),
                 ],
               ),
             );
@@ -200,11 +171,22 @@ class _EditProductPageState extends ConsumerState<EditProductPage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // LOGO
-        Image.asset(
-          'assets/images/sabi_login.png',
-          height: logoHeight,
-          fit: BoxFit.contain,
+        // LOGO ROW
+        Row(
+          children: [
+            IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+            ),
+            Expanded(
+              child: Image.asset(
+                'assets/images/sabi_login.png',
+                height: logoHeight,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 48), // Balance the back button
+          ],
         ),
 
         // SPACE antara LOGO dan PRODUCT (ditambah sedikit)

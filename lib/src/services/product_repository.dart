@@ -10,6 +10,7 @@ final productRepositoryProvider = Provider<ProductRepository>((ref) {
 abstract class ProductRepository {
   Future<List<Product>> fetchAllProducts();
   Future<List<Product>> fetchAll();
+  Future<List<Product>> fetchLimitedProduct();
   Future<Product?> createProduct({
     required String name,
     required double price,
@@ -34,13 +35,31 @@ class SupabaseProductRepository implements ProductRepository {
       final res = await _client
           .from('products')
           .select('*')
-          .match({'is_active': true}).order('created_at');
+          .match({'is_active': true}).order('created_at', ascending: false);
 
       return (res as List)
           .map((e) => Product.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
       print('fetchAllProducts error: $e');
+      return [];
+    }
+  }
+
+  Future<List<Product>> fetchLimitedProduct() async {
+    try {
+      final res = await _client
+          .from('products')
+          .select('*')
+          .match({'is_active': true})
+          .order('created_at', ascending: false)
+          .limit(2);
+
+      return (res as List)
+          .map((e) => Product.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      print('fetchLimitedProduct error: $e');
       return [];
     }
   }

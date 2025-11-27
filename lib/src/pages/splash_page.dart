@@ -1,3 +1,5 @@
+import 'package:ecommerce_sabi/src/pages/admin/admin_homepage.dart'
+    show AdminHomepage;
 import 'package:ecommerce_sabi/src/pages/login_page.dart';
 import 'package:ecommerce_sabi/src/pages/user/product_list_page.dart';
 import 'package:flutter/material.dart';
@@ -51,7 +53,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
     if (role == 'admin' || role == 'owner') {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const EditProductPage()),
+        MaterialPageRoute(builder: (_) => const AdminHomepage()),
       );
     } else {
       Navigator.push(

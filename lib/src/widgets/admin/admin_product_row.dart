@@ -1,5 +1,5 @@
-// lib/widgets/admin_product_row.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:ecommerce_sabi/src/models/product.dart';
 
 class AdminProductRow extends StatelessWidget {
@@ -13,14 +13,6 @@ class AdminProductRow extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
   });
-
-  String _rupiah(double value) {
-    final str = value.toInt().toString();
-    return str.replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (m) => '${m[1]}.',
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,11 +64,20 @@ class AdminProductRow extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'RP.${_rupiah(product.price)}',
+                NumberFormat.currency(
+                        locale: 'id_ID', symbol: 'RP.', decimalDigits: 0)
+                    .format(product.price),
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
+                  color: Colors.white70,
                   fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${product.stock}x',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
                 ),
               ),
             ],
@@ -85,27 +86,18 @@ class AdminProductRow extends StatelessWidget {
 
         const SizedBox(width: 12),
 
-        // STOCK + EDIT BUTTON
+        // EDIT BUTTON
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
-              'STOCK = ${product.stock}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 11,
-              ),
-            ),
-            const SizedBox(height: 8),
             SizedBox(
-              width: isWide ? 90 : 70,
+              width: isWide ? 70 : 60,
               child: ElevatedButton(
                 onPressed: onEdit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6),
                   ),
@@ -114,20 +106,20 @@ class AdminProductRow extends StatelessWidget {
                   'EDIT',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 11,
+                    fontSize: 10,
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 8),
             SizedBox(
-              width: isWide ? 90 : 70,
+              width: isWide ? 70 : 60,
               child: ElevatedButton(
                 onPressed: onDelete,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.redAccent,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6),
                   ),
@@ -136,7 +128,7 @@ class AdminProductRow extends StatelessWidget {
                   'DELETE',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 11,
+                    fontSize: 10,
                   ),
                 ),
               ),

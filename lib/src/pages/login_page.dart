@@ -1,4 +1,4 @@
-import 'package:ecommerce_sabi/src/pages/admin/edit_product_page.dart';
+import 'package:ecommerce_sabi/src/pages/admin/admin_homepage.dart';
 import 'package:ecommerce_sabi/src/pages/user/product_list_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -98,7 +98,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         } else if (role == 'owner' || role == 'admin') {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const EditProductPage()),
+            MaterialPageRoute(builder: (_) => const AdminHomepage()),
           );
         } else {
           // Default fallback
