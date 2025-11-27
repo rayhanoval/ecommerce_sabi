@@ -105,19 +105,6 @@ class _AdminHomepageState extends ConsumerState<AdminHomepage> {
             padding: const EdgeInsets.only(right: 16),
             tooltip: 'Profile',
           ),
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProcessOrderPage()),
-              );
-            },
-            icon: const Icon(Icons.list_alt),
-            color: Colors.white70,
-            iconSize: 20,
-            padding: const EdgeInsets.only(right: 16),
-            tooltip: 'Process Orders',
-          ),
           if (isLoggedIn) ...[
             IconButton(
               onPressed: () async {

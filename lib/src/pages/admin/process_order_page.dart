@@ -16,6 +16,7 @@ class _ProcessOrderPageState extends State<ProcessOrderPage> {
   Set<String> _selectedOrderIds = {};
   bool _isLoading = true;
   bool _isProcessing = false;
+  bool _showAll = false;
 
   @override
   void initState() {
@@ -34,8 +35,8 @@ class _ProcessOrderPageState extends State<ProcessOrderPage> {
       final res = await _client
           .from('orders')
           .select('*, order_items(*, products(*))')
-          .eq('status', 'pending')
-          .order('created_at', ascending: false);
+          .inFilter('status', ['pending', 'processing']).order('created_at',
+              ascending: false);
 
       final List<Map<String, dynamic>> loaded = [];
       for (var r in res) {
@@ -70,13 +71,13 @@ class _ProcessOrderPageState extends State<ProcessOrderPage> {
 
     setState(() => _isProcessing = true);
     try {
-      // Update status to 'processing'
+      // Update status to 'processing' (valid enum value)
       await _client.from('orders').update({'status': 'processing'}).filter(
           'id', 'in', _selectedOrderIds.toList());
 
       if (mounted) {
         // Navigate to detail page
-        final result = await Navigator.push(
+        await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => ProcessOrderDetailPage(
@@ -85,10 +86,8 @@ class _ProcessOrderPageState extends State<ProcessOrderPage> {
           ),
         );
 
-        // Refresh list if orders were marked as shipped
-        if (result == true) {
-          _fetchOrders();
-        }
+        // Refresh list after returning from detail page
+        _fetchOrders();
       }
     } catch (e) {
       debugPrint('Error processing orders: $e');
@@ -144,6 +143,26 @@ class _ProcessOrderPageState extends State<ProcessOrderPage> {
           ),
           const Divider(color: Colors.white24, height: 1),
 
+          // View All Button
+          if (_orders.length > 5 && !_showAll)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: TextButton(
+                  onPressed: () => setState(() => _showAll = true),
+                  child: const Text(
+                    'VIEW ALL',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
           // List
           Expanded(
             child: _isLoading
@@ -155,7 +174,9 @@ class _ProcessOrderPageState extends State<ProcessOrderPage> {
                             style: TextStyle(color: Colors.white54)))
                     : ListView.separated(
                         padding: const EdgeInsets.all(16),
-                        itemCount: _orders.length,
+                        itemCount: _showAll
+                            ? _orders.length
+                            : (_orders.length > 5 ? 5 : _orders.length),
                         separatorBuilder: (_, __) => const SizedBox(height: 16),
                         itemBuilder: (context, index) {
                           final order = _orders[index];

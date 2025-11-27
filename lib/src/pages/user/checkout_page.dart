@@ -161,7 +161,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Order berhasil dibuat ✅')),
+          const SnackBar(content: Text('Order berhasil dibuat')),
         );
         Navigator.of(context).pop();
       }

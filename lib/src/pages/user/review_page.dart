@@ -107,8 +107,11 @@ class _ReviewPageState extends State<ReviewPage> {
           .maybeSingle();
       final hasReviewed = reviewRes != null;
 
-      final ordersResp =
-          await _client.from('orders').select('id').eq('user_id', userId);
+      final ordersResp = await _client
+          .from('orders')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('status', 'completed');
 
       bool hasPurchased = false;
       if (ordersResp.isNotEmpty) {

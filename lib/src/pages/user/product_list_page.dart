@@ -9,6 +9,7 @@ import '../../widgets/common/grid.dart';
 import '../../services/product_repository.dart';
 import '../login_page.dart';
 import 'product_detail_page.dart';
+import 'user_order_page.dart';
 import '../../models/product.dart';
 
 class ProductListPage extends ConsumerStatefulWidget {
@@ -20,6 +21,7 @@ class ProductListPage extends ConsumerStatefulWidget {
 
 class _ProductListPageState extends ConsumerState<ProductListPage> {
   bool isLoggedIn = false;
+  int _orderCount = 0;
 
   @override
   void initState() {
@@ -28,6 +30,10 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
     // cek session Supabase saat halaman dibuka
     final session = Supabase.instance.client.auth.currentSession;
     isLoggedIn = session != null;
+
+    if (isLoggedIn) {
+      _fetchOrderCount();
+    }
 
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.black,
@@ -40,10 +46,35 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
       final event = data.event;
       if (event == AuthChangeEvent.signedIn) {
         setState(() => isLoggedIn = true);
+        _fetchOrderCount();
       } else if (event == AuthChangeEvent.signedOut) {
-        setState(() => isLoggedIn = false);
+        setState(() {
+          isLoggedIn = false;
+          _orderCount = 0;
+        });
       }
     });
+  }
+
+  Future<void> _fetchOrderCount() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      final res = await Supabase.instance.client
+          .from('orders')
+          .select('id')
+          .eq('user_id', user.id)
+          .inFilter('status', ['pending', 'processing']);
+
+      if (mounted) {
+        setState(() {
+          _orderCount = res.length;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching order count: $e');
+    }
   }
 
   String _getName(dynamic item) {
@@ -210,6 +241,53 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
               ),
             ),
           if (isLoggedIn) ...[
+            // Order icon with badge
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Stack(
+                children: [
+                  IconButton(
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const UserOrderPage()),
+                      );
+                      _fetchOrderCount(); // Refresh count after returning
+                    },
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    color: Colors.white70,
+                    iconSize: 20,
+                    tooltip: 'Orders',
+                  ),
+                  if (_orderCount > 0)
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          _orderCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
             IconButton(
               onPressed: () async {
                 await Supabase.instance.client.auth.signOut();

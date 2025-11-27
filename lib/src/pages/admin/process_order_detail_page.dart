@@ -137,7 +137,7 @@ class _ProcessOrderDetailPageState extends State<ProcessOrderDetailPage> {
         // Web platform: trigger browser download
         final blob = html.Blob([pdfBytes], 'application/pdf');
         final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.AnchorElement(href: url)
+        html.AnchorElement(href: url)
           ..setAttribute('download', fileName)
           ..click();
         html.Url.revokeObjectUrl(url);
