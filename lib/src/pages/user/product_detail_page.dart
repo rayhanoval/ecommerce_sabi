@@ -5,8 +5,9 @@ import '../login_page.dart';
 import 'checkout_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ecommerce_sabi/src/widgets/product/product_rating_preview.dart';
+import 'package:ecommerce_sabi/src/services/product_image_service.dart';
 
-class ProductDetailPage extends StatelessWidget {
+class ProductDetailPage extends StatefulWidget {
   final Product product;
   final bool isLoggedIn;
   final VoidCallback? onAddToBag;
@@ -19,6 +20,42 @@ class ProductDetailPage extends StatelessWidget {
     this.onAddToBag,
     this.onBuyNow,
   });
+
+  @override
+  State<ProductDetailPage> createState() => _ProductDetailPageState();
+}
+
+class _ProductDetailPageState extends State<ProductDetailPage> {
+  List<String> _allImages = [];
+  int _currentImageIndex = 0;
+  final PageController _pageController = PageController();
+  late final ProductImageService _imageService;
+
+  @override
+  void initState() {
+    super.initState();
+    _imageService = ProductImageService(Supabase.instance.client);
+    _loadImages();
+  }
+
+  Future<void> _loadImages() async {
+    final additionalImages =
+        await _imageService.fetchProductImages(widget.product.id);
+
+    setState(() {
+      // Start with main image, then add additional images
+      _allImages = [
+        if (widget.product.imgUrl.isNotEmpty) widget.product.imgUrl,
+        ...additionalImages,
+      ];
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   String _formatPrice(double value) {
     final formatter = NumberFormat.currency(
@@ -54,8 +91,8 @@ class ProductDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final priceText = _formatPrice(product.price);
-    final descLines = _descriptionLines(product.description);
+    final priceText = _formatPrice(widget.product.price);
+    final descLines = _descriptionLines(widget.product.description);
 
     final media = MediaQuery.of(context);
     final screenWidth = media.size.width;
@@ -114,7 +151,7 @@ class ProductDetailPage extends StatelessWidget {
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 child: Column(children: [
-                  // PRODUCT IMAGE (smaller & centered)
+                  // PRODUCT IMAGE CAROUSEL
                   Padding(
                     padding:
                         EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -124,23 +161,10 @@ class ProductDetailPage extends StatelessWidget {
                           maxWidth: productImageWidth,
                           maxHeight: imageMaxHeight,
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: product.imgUrl.isNotEmpty
-                              ? Image.network(
-                                  product.imgUrl,
-                                  fit: BoxFit.cover,
-                                  width: productImageWidth,
-                                  height: imageMaxHeight,
-                                  errorBuilder: (c, e, st) => Container(
-                                    color: Colors.grey[900],
-                                    child: const Center(
-                                      child: Icon(Icons.image_not_supported,
-                                          color: Colors.white24, size: 48),
-                                    ),
-                                  ),
-                                )
-                              : Container(
+                        child: _allImages.isEmpty
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
                                   color: Colors.grey[900],
                                   height: imageMaxHeight,
                                   child: const Center(
@@ -148,7 +172,65 @@ class ProductDetailPage extends StatelessWidget {
                                         color: Colors.white24, size: 48),
                                   ),
                                 ),
-                        ),
+                              )
+                            : Column(
+                                children: [
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: PageView.builder(
+                                        controller: _pageController,
+                                        onPageChanged: (index) {
+                                          setState(() {
+                                            _currentImageIndex = index;
+                                          });
+                                        },
+                                        itemCount: _allImages.length,
+                                        itemBuilder: (context, index) {
+                                          return Image.network(
+                                            _allImages[index],
+                                            fit: BoxFit.cover,
+                                            width: productImageWidth,
+                                            height: imageMaxHeight,
+                                            errorBuilder: (c, e, st) =>
+                                                Container(
+                                              color: Colors.grey[900],
+                                              child: const Center(
+                                                child: Icon(
+                                                    Icons.image_not_supported,
+                                                    color: Colors.white24,
+                                                    size: 48),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  if (_allImages.length > 1) ...[
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: List.generate(
+                                        _allImages.length,
+                                        (index) => Container(
+                                          margin: const EdgeInsets.symmetric(
+                                              horizontal: 4),
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: _currentImageIndex == index
+                                                ? Colors.white
+                                                : Colors.white38,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                       ),
                     ),
                   ),
@@ -162,7 +244,7 @@ class ProductDetailPage extends StatelessWidget {
                     child: Column(
                       children: [
                         Text(
-                          product.name.toUpperCase(),
+                          widget.product.name.toUpperCase(),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Colors.white,
@@ -212,12 +294,12 @@ class ProductDetailPage extends StatelessWidget {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (_) => CheckoutPage(
-                                      product: product, quantity: 1),
+                                      product: widget.product, quantity: 1),
                                 ),
                               );
                             },
                             child: Image.asset(
-                              isLoggedIn
+                              widget.isLoggedIn
                                   ? 'assets/images/buy_now.png'
                                   : 'assets/images/login_buy_now.png',
                               height: buttonHeight,
@@ -239,8 +321,8 @@ class ProductDetailPage extends StatelessWidget {
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
-                              if (onAddToBag != null) {
-                                onAddToBag!();
+                              if (widget.onAddToBag != null) {
+                                widget.onAddToBag!();
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -301,7 +383,7 @@ class ProductDetailPage extends StatelessWidget {
                       }).toList(),
                     ),
                   ),
-                  ProductRatingPreview(product: product),
+                  ProductRatingPreview(product: widget.product),
                   SizedBox(height: screenHeight * 0.06),
                 ]),
               ),

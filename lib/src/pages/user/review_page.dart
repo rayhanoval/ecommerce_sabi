@@ -62,7 +62,7 @@ class _ReviewPageState extends State<ReviewPage> {
       final res = await _client
           .from('product_ratings')
           .select(
-              'id, rating, comment, created_at, user_id, users(display_name,username,avatar_url)')
+              'id, rating, comment, reply, reply_at, created_at, user_id, users(display_name,username,avatar_url)')
           .eq('product_id', widget.product.id)
           .order('created_at', ascending: false)
           .limit(200);
@@ -584,6 +584,49 @@ class _ReviewPageState extends State<ReviewPage> {
                                   Text(comment,
                                       style: const TextStyle(
                                           color: Colors.white70)),
+                                  if (r['reply'] != null &&
+                                      r['reply'].toString().isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white10,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                            color: Colors.white24, width: 0.5),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: const [
+                                              Text(
+                                                'SABI ADMIN',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  letterSpacing: 1,
+                                                ),
+                                              ),
+                                              SizedBox(width: 4),
+                                              Icon(Icons.check_circle,
+                                                  color: Colors.blue, size: 14),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            r['reply'].toString(),
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),

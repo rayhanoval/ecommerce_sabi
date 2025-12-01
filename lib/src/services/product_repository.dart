@@ -41,12 +41,11 @@ class SupabaseProductRepository implements ProductRepository {
           .map((e) => Product.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      // debugPrint('fetchAllProducts error: $e');
+      print('fetchAllProducts error: $e');
       return [];
     }
   }
 
-  @override
   Future<List<Product>> fetchLimitedProduct() async {
     try {
       final res = await _client
@@ -60,7 +59,7 @@ class SupabaseProductRepository implements ProductRepository {
           .map((e) => Product.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      // debugPrint('fetchLimitedProduct error: $e');
+      print('fetchLimitedProduct error: $e');
       return [];
     }
   }
@@ -74,7 +73,7 @@ class SupabaseProductRepository implements ProductRepository {
           .map((e) => Product.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      // debugPrint('fetchAll error: $e');
+      print('fetchAll error: $e');
       return [];
     }
   }
@@ -104,9 +103,9 @@ class SupabaseProductRepository implements ProductRepository {
 
       if (res == null) return null;
 
-      return Product.fromJson(res);
+      return Product.fromJson(res as Map<String, dynamic>);
     } catch (e) {
-      // debugPrint('createProduct error: $e');
+      print('createProduct error: $e');
       return null;
     }
   }
@@ -131,9 +130,9 @@ class SupabaseProductRepository implements ProductRepository {
 
       if (res == null) return null;
 
-      return Product.fromJson(res);
+      return Product.fromJson(res as Map<String, dynamic>);
     } catch (e) {
-      // debugPrint('updateProduct error: $e');
+      print('updateProduct error: $e');
       return null;
     }
   }
@@ -154,7 +153,7 @@ class SupabaseProductRepository implements ProductRepository {
 
       return publicUrl;
     } catch (e) {
-      // debugPrint('uploadProductImage error: $e');
+      print('uploadProductImage error: $e');
       return null;
     }
   }
@@ -165,7 +164,7 @@ class SupabaseProductRepository implements ProductRepository {
       await _client.from('products').delete().match({'id': id});
       return true;
     } catch (e) {
-      // debugPrint('deleteProduct error: $e');
+      print('deleteProduct error: $e');
       return false;
     }
   }
