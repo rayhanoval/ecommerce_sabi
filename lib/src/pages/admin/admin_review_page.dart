@@ -29,7 +29,7 @@ class _AdminReviewPageState extends State<AdminReviewPage> {
     try {
       final res = await _client
           .from('product_ratings')
-          .select('*, products(*), users(display_name, username)')
+          .select('*, products(*), users(display_name, username), image_url')
           .filter('reply', 'is', null)
           .order('created_at', ascending: false);
 
@@ -107,18 +107,19 @@ class _AdminReviewPageState extends State<AdminReviewPage> {
                         onRefresh: _refreshReviews,
                         child: ListView.builder(
                           physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _reviews.length,
-                        itemBuilder: (context, index) {
-                          final review = _reviews[index];
-                          return AdminReviewCard(
-                            review: review,
-                            onReplySuccess: _fetchReviews,
-                          );
-                        },
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _reviews.length,
+                          itemBuilder: (context, index) {
+                            final review = _reviews[index];
+                            return AdminReviewCard(
+                              review: review,
+                              onReplySuccess: _fetchReviews,
+                            );
+                          },
+                        ),
                       ),
-          ),
-      )],
+          )
+        ],
       ),
     );
   }

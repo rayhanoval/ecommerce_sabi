@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ecommerce_sabi/src/models/product.dart';
-import 'package:ecommerce_sabi/src/pages/user/review_page.dart';
+import 'package:ecommerce_sabi/src/pages/user/submit_review_page.dart';
 
 class UserOrderPage extends StatefulWidget {
   const UserOrderPage({super.key});
@@ -180,7 +180,7 @@ class _UserOrderPageState extends State<UserOrderPage> {
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => ReviewPage(product: product),
+          builder: (_) => SubmitReviewPage(product: product),
         ),
       );
       // Refresh orders after review

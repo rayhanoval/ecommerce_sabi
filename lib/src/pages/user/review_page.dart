@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/product.dart';
+import '../../widgets/review_image_gallery.dart';
 
 class ReviewPage extends StatefulWidget {
   final Product product;
@@ -16,15 +18,6 @@ class ReviewPage extends StatefulWidget {
 class _ReviewPageState extends State<ReviewPage> {
   final SupabaseClient _client = Supabase.instance.client;
 
-  final TextEditingController _commentController = TextEditingController();
-  int _rating = 5;
-  bool _isSubmitting = false;
-
-  bool _isLoggedIn = false;
-  bool _hasPurchased = false;
-  bool _hasReviewed = false;
-  bool _checkingEligibility = true;
-
   StreamController<List<Map<String, dynamic>>>? _controller;
   Timer? _pollTimer;
   static const int _pollSeconds = 4;
@@ -33,7 +26,7 @@ class _ReviewPageState extends State<ReviewPage> {
   void initState() {
     super.initState();
     _ensureController();
-    _initAuthAndEligibility();
+    _loadReviewsAndAdd();
   }
 
   void _ensureController() {
@@ -62,7 +55,7 @@ class _ReviewPageState extends State<ReviewPage> {
       final res = await _client
           .from('product_ratings')
           .select(
-              'id, rating, comment, reply, reply_at, created_at, user_id, users(display_name,username,avatar_url)')
+              'id, rating, comment, reply, reply_at, created_at, user_id, image_url, users(display_name,username,avatar_url)')
           .eq('product_id', widget.product.id)
           .order('created_at', ascending: false)
           .limit(200);
@@ -76,127 +69,6 @@ class _ReviewPageState extends State<ReviewPage> {
     } catch (e, st) {
       debugPrint('loadReviews error: $e\n$st');
       _controller?.addError(e);
-    }
-  }
-
-  Future<void> _initAuthAndEligibility() async {
-    setState(() => _checkingEligibility = true);
-
-    final session = _client.auth.currentSession;
-    final loggedIn = session != null;
-    setState(() => _isLoggedIn = loggedIn);
-
-    if (!loggedIn) {
-      await _loadReviewsAndAdd();
-      setState(() {
-        _hasPurchased = false;
-        _hasReviewed = false;
-        _checkingEligibility = false;
-      });
-      return;
-    }
-
-    final userId = session.user.id;
-
-    try {
-      final reviewRes = await _client
-          .from('product_ratings')
-          .select('id')
-          .eq('product_id', widget.product.id)
-          .eq('user_id', userId)
-          .maybeSingle();
-      final hasReviewed = reviewRes != null;
-
-      final ordersResp = await _client
-          .from('orders')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('status', 'completed');
-
-      bool hasPurchased = false;
-      if (ordersResp.isNotEmpty) {
-        final orderIds = <String>[];
-        for (var o in ordersResp) {
-          if (o['id'] != null) orderIds.add(o['id'].toString());
-        }
-
-        if (orderIds.isNotEmpty) {
-          final oiResp = await _client
-              .from('order_items')
-              .select('order_id, product_id')
-              .eq('product_id', widget.product.id);
-
-          if (oiResp.isNotEmpty) {
-            for (var it in oiResp) {
-              if (it['order_id'] != null) {
-                final oid = it['order_id'].toString();
-                if (orderIds.contains(oid)) {
-                  hasPurchased = true;
-                  break;
-                }
-              }
-            }
-          }
-        }
-      }
-
-      setState(() {
-        _hasReviewed = hasReviewed;
-        _hasPurchased = hasPurchased;
-      });
-    } catch (e) {
-      debugPrint('eligibility check error: $e');
-      setState(() {
-        _hasReviewed = false;
-        _hasPurchased = false;
-      });
-    } finally {
-      await _loadReviewsAndAdd();
-      setState(() => _checkingEligibility = false);
-    }
-  }
-
-  Future<void> _submitReview() async {
-    final session = _client.auth.currentSession;
-    if (session == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login to submit review')));
-      return;
-    }
-    if (!_hasPurchased) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('You must buy this product before reviewing')));
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-    try {
-      final userId = session.user.id;
-      await _client.from('product_ratings').upsert({
-        'user_id': userId,
-        'product_id': widget.product.id,
-        'rating': _rating,
-        'comment': _commentController.text.trim(),
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id,product_id');
-
-      await _initAuthAndEligibility();
-      await _loadReviewsAndAdd();
-
-      _commentController.clear();
-      setState(() => _rating = 5);
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Review submitted')));
-      }
-    } catch (e) {
-      debugPrint('submit error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to submit review: $e')));
-      }
-    } finally {
-      setState(() => _isSubmitting = false);
     }
   }
 
@@ -220,61 +92,7 @@ class _ReviewPageState extends State<ReviewPage> {
   void dispose() {
     _pollTimer?.cancel();
     _controller?.close();
-    _commentController.dispose();
     super.dispose();
-  }
-
-  Widget _buildNotLoggedInNotice() {
-    return Column();
-  }
-
-  Widget _buildNotPurchasedNotice() {
-    return Column();
-  }
-
-  Widget _buildAlreadyReviewedNotice() {
-    return Column();
-  }
-
-  Widget _buildSubmitArea() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        TextField(
-          controller: _commentController,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            labelText: 'Write your review',
-            labelStyle: const TextStyle(color: Colors.white54),
-            filled: true,
-            fillColor: Colors.white10,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          minLines: 1,
-          maxLines: 4,
-        ),
-        const SizedBox(height: 8),
-        Row(
-            children: List.generate(5, (i) {
-          return IconButton(
-            icon: Icon(i < _rating ? Icons.star : Icons.star_border,
-                color: Color.fromRGBO(255, 202, 46, 1)),
-            onPressed: () => setState(() => _rating = i + 1),
-          );
-        })),
-        const SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: _isSubmitting ? null : _submitReview,
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2))
-              : const Text('Submit Review'),
-        ),
-      ],
-    );
   }
 
   String _timeAgo(DateTime t) {
@@ -488,25 +306,6 @@ class _ReviewPageState extends State<ReviewPage> {
             // SINGLE divider only
             const Divider(color: Colors.white12),
 
-            // Submit area OR a compact notice. If submit area is not shown, we render a small SizedBox (no extra divider).
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6),
-              child: _checkingEligibility
-                  ? const SizedBox(
-                      height: 56,
-                      child: Center(child: CircularProgressIndicator()))
-                  : (!_isLoggedIn
-                      ? _buildNotLoggedInNotice()
-                      : (!_hasPurchased
-                          ? _buildNotPurchasedNotice()
-                          : (_hasReviewed
-                              ? _buildAlreadyReviewedNotice()
-                              : _buildSubmitArea()))),
-            ),
-
-            // NO second divider here — prevents double line + empty gap
-
             // Reviews list (fills remaining space)
             Expanded(
               child: StreamBuilder<List<Map<String, dynamic>>>(
@@ -576,6 +375,23 @@ class _ReviewPageState extends State<ReviewPage> {
                             ? r['rating'] as int
                             : int.tryParse((r['rating'] ?? '').toString()) ?? 0;
 
+                        final rawImage = r['image_url']?.toString();
+                        List<String> images = [];
+                        if (rawImage != null && rawImage.isNotEmpty) {
+                          try {
+                            final decoded = jsonDecode(rawImage);
+                            if (decoded is List) {
+                              images =
+                                  decoded.map((e) => e.toString()).toList();
+                            } else {
+                              images = [rawImage];
+                            }
+                          } catch (_) {
+                            // Not JSON, treat as single URL
+                            images = [rawImage];
+                          }
+                        }
+
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -622,6 +438,10 @@ class _ReviewPageState extends State<ReviewPage> {
                                   Text(comment,
                                       style: const TextStyle(
                                           color: Colors.white70)),
+                                  if (images.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    ReviewImageGallery(images: images),
+                                  ],
                                   if (r['reply'] != null &&
                                       r['reply'].toString().isNotEmpty) ...[
                                     const SizedBox(height: 12),
@@ -676,9 +496,9 @@ class _ReviewPageState extends State<ReviewPage> {
                 },
               ),
             ),
-            ],
-          ),
+          ],
         ),
-      );
+      ),
+    );
   }
 }
