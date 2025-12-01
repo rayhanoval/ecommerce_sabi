@@ -24,6 +24,10 @@ class _ProcessOrderPageState extends State<ProcessOrderPage> {
     _fetchOrders();
   }
 
+  Future<void> _refreshOrders() async {
+    await _fetchOrders();
+  }
+
   Future<void> _fetchOrders() async {
     setState(() => _isLoading = true);
     try {
@@ -169,144 +173,162 @@ class _ProcessOrderPageState extends State<ProcessOrderPage> {
                 ? const Center(
                     child: CircularProgressIndicator(color: Colors.white))
                 : _orders.isEmpty
-                    ? const Center(
-                        child: Text('No pending orders',
-                            style: TextStyle(color: Colors.white54)))
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _showAll
-                            ? _orders.length
-                            : (_orders.length > 5 ? 5 : _orders.length),
-                        separatorBuilder: (_, __) => const SizedBox(height: 16),
-                        itemBuilder: (context, index) {
-                          final order = _orders[index];
-                          final id = order['id'].toString();
-                          final items = (order['order_items'] as List?) ?? [];
-                          // Display first item details for the preview
-                          final firstItem =
-                              items.isNotEmpty ? items.first : null;
-                          final product =
-                              firstItem != null ? firstItem['products'] : null;
+                    ? RefreshIndicator(
+                        onRefresh: _refreshOrders,
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            SizedBox(height: 200),
+                            Center(
+                              child: Text('No pending orders',
+                                  style: TextStyle(color: Colors.white54)),
+                            ),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _refreshOrders,
+                        child: ListView.separated(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _showAll
+                              ? _orders.length
+                              : (_orders.length > 5 ? 5 : _orders.length),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 16),
+                          itemBuilder: (context, index) {
+                            final order = _orders[index];
+                            final id = order['id'].toString();
+                            final items = (order['order_items'] as List?) ?? [];
+                            // Display first item details for the preview
+                            final firstItem =
+                                items.isNotEmpty ? items.first : null;
+                            final product = firstItem != null
+                                ? firstItem['products']
+                                : null;
 
-                          final productName = product != null
-                              ? (product['name'] ?? 'Unknown Product')
-                              : 'Unknown Product';
-                          final price =
-                              firstItem != null ? (firstItem['price'] ?? 0) : 0;
-                          final quantity = firstItem != null
-                              ? (firstItem['quantity'] ?? 0)
-                              : 0;
-                          final imgUrl =
-                              product != null ? (product['img_url'] ?? '') : '';
+                            final productName = product != null
+                                ? (product['name'] ?? 'Unknown Product')
+                                : 'Unknown Product';
+                            final price = firstItem != null
+                                ? (firstItem['price'] ?? 0)
+                                : 0;
+                            final quantity = firstItem != null
+                                ? (firstItem['quantity'] ?? 0)
+                                : 0;
+                            final imgUrl = product != null
+                                ? (product['img_url'] ?? '')
+                                : '';
 
-                          // If multiple items, maybe show "+ X more"
-                          final moreCount =
-                              items.length > 1 ? items.length - 1 : 0;
+                            // If multiple items, maybe show "+ X more"
+                            final moreCount =
+                                items.length > 1 ? items.length - 1 : 0;
 
-                          final isSelected = _selectedOrderIds.contains(id);
+                            final isSelected = _selectedOrderIds.contains(id);
 
-                          return InkWell(
-                            onTap: () {
-                              setState(() {
-                                if (isSelected) {
-                                  _selectedOrderIds.remove(id);
-                                } else {
-                                  _selectedOrderIds.add(id);
-                                }
-                              });
-                            },
-                            child: Row(
-                              children: [
-                                // Checkbox (Custom look)
-                                Container(
-                                  width: 20,
-                                  height: 20,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                        color: Colors.white, width: 1.5),
-                                    color: isSelected
-                                        ? Colors.white
-                                        : Colors.transparent,
-                                  ),
-                                  child: isSelected
-                                      ? const Icon(Icons.check,
-                                          size: 14, color: Colors.black)
-                                      : null,
-                                ),
-                                const SizedBox(width: 16),
-
-                                // Image
-                                Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white10,
-                                    borderRadius: BorderRadius.circular(4),
-                                    image: imgUrl.isNotEmpty
-                                        ? DecorationImage(
-                                            image: NetworkImage(imgUrl),
-                                            fit: BoxFit.cover)
+                            return InkWell(
+                              onTap: () {
+                                setState(() {
+                                  if (isSelected) {
+                                    _selectedOrderIds.remove(id);
+                                  } else {
+                                    _selectedOrderIds.add(id);
+                                  }
+                                });
+                              },
+                              child: Row(
+                                children: [
+                                  // Checkbox (Custom look)
+                                  Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                          color: Colors.white, width: 1.5),
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.transparent,
+                                    ),
+                                    child: isSelected
+                                        ? const Icon(Icons.check,
+                                            size: 14, color: Colors.black)
                                         : null,
                                   ),
-                                ),
-                                const SizedBox(width: 16),
+                                  const SizedBox(width: 16),
 
-                                // Details
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        productName.toString().toUpperCase(),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                          letterSpacing: 1,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        NumberFormat.currency(
-                                                locale: 'id_ID',
-                                                symbol: 'RP.',
-                                                decimalDigits: 0)
-                                            .format(price),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1,
-                                        ),
-                                      ),
-                                      if (moreCount > 0)
+                                  // Image
+                                  Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white10,
+                                      borderRadius: BorderRadius.circular(4),
+                                      image: imgUrl.isNotEmpty
+                                          ? DecorationImage(
+                                              image: NetworkImage(imgUrl),
+                                              fit: BoxFit.cover)
+                                          : null,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+
+                                  // Details
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
                                         Text(
-                                          '+ $moreCount other items',
+                                          productName.toString().toUpperCase(),
                                           style: const TextStyle(
-                                              color: Colors.white54,
-                                              fontSize: 10),
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            letterSpacing: 1,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                    ],
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          NumberFormat.currency(
+                                                  locale: 'id_ID',
+                                                  symbol: 'RP.',
+                                                  decimalDigits: 0)
+                                              .format(price),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 1,
+                                          ),
+                                        ),
+                                        if (moreCount > 0)
+                                          Text(
+                                            '+ $moreCount other items',
+                                            style: const TextStyle(
+                                                color: Colors.white54,
+                                                fontSize: 10),
+                                          ),
+                                      ],
+                                    ),
                                   ),
-                                ),
 
-                                // Quantity
-                                Text(
-                                  '${quantity}X',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
+                                  // Quantity
+                                  Text(
+                                    '${quantity}X',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                       ),
           ),
 
@@ -359,8 +381,8 @@ class _ProcessOrderPageState extends State<ProcessOrderPage> {
                     foregroundColor: Colors.black, // Text color if filled
                   ).copyWith(
                     backgroundColor:
-                        MaterialStateProperty.all(Colors.transparent),
-                    foregroundColor: MaterialStateProperty.all(Colors.white),
+                        WidgetStateProperty.all(Colors.transparent),
+                    foregroundColor: WidgetStateProperty.all(Colors.white),
                   ),
                   child: _isProcessing
                       ? const SizedBox(

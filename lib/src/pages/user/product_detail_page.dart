@@ -51,6 +51,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     });
   }
 
+  Future<void> _refreshPage() async {
+    await _loadImages();
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -148,244 +152,247 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
             // CONTENT
             Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(children: [
-                  // PRODUCT IMAGE CAROUSEL
-                  Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: horizontalPadding),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: productImageWidth,
-                          maxHeight: imageMaxHeight,
-                        ),
-                        child: _allImages.isEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  color: Colors.grey[900],
-                                  height: imageMaxHeight,
-                                  child: const Center(
-                                    child: Icon(Icons.image,
-                                        color: Colors.white24, size: 48),
-                                  ),
-                                ),
-                              )
-                            : Column(
-                                children: [
-                                  Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: PageView.builder(
-                                        controller: _pageController,
-                                        onPageChanged: (index) {
-                                          setState(() {
-                                            _currentImageIndex = index;
-                                          });
-                                        },
-                                        itemCount: _allImages.length,
-                                        itemBuilder: (context, index) {
-                                          return Image.network(
-                                            _allImages[index],
-                                            fit: BoxFit.cover,
-                                            width: productImageWidth,
-                                            height: imageMaxHeight,
-                                            errorBuilder: (c, e, st) =>
-                                                Container(
-                                              color: Colors.grey[900],
-                                              child: const Center(
-                                                child: Icon(
-                                                    Icons.image_not_supported,
-                                                    color: Colors.white24,
-                                                    size: 48),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
+              child: RefreshIndicator(
+                onRefresh: _refreshPage,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(children: [
+                    // PRODUCT IMAGE CAROUSEL
+                    Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: horizontalPadding),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: productImageWidth,
+                            maxHeight: imageMaxHeight,
+                          ),
+                          child: _allImages.isEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    color: Colors.grey[900],
+                                    height: imageMaxHeight,
+                                    child: const Center(
+                                      child: Icon(Icons.image,
+                                          color: Colors.white24, size: 48),
                                     ),
                                   ),
-                                  if (_allImages.length > 1) ...[
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: List.generate(
-                                        _allImages.length,
-                                        (index) => Container(
-                                          margin: const EdgeInsets.symmetric(
-                                              horizontal: 4),
-                                          width: 8,
-                                          height: 8,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: _currentImageIndex == index
-                                                ? Colors.white
-                                                : Colors.white38,
-                                          ),
+                                )
+                              : Column(
+                                  children: [
+                                    Expanded(
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: PageView.builder(
+                                          controller: _pageController,
+                                          onPageChanged: (index) {
+                                            setState(() {
+                                              _currentImageIndex = index;
+                                            });
+                                          },
+                                          itemCount: _allImages.length,
+                                          itemBuilder: (context, index) {
+                                            return Image.network(
+                                              _allImages[index],
+                                              fit: BoxFit.cover,
+                                              width: productImageWidth,
+                                              height: imageMaxHeight,
+                                              errorBuilder: (c, e, st) =>
+                                                  Container(
+                                                color: Colors.grey[900],
+                                                child: const Center(
+                                                  child: Icon(
+                                                      Icons.image_not_supported,
+                                                      color: Colors.white24,
+                                                      size: 48),
+                                                ),
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ),
                                     ),
+                                    if (_allImages.length > 1) ...[
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: List.generate(
+                                          _allImages.length,
+                                          (index) => Container(
+                                            margin: const EdgeInsets.symmetric(
+                                                horizontal: 4),
+                                            width: 8,
+                                            height: 8,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: _currentImageIndex == index
+                                                  ? Colors.white
+                                                  : Colors.white38,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ],
-                                ],
-                              ),
+                                ),
+                        ),
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // TITLE + PRICE
-                  Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: horizontalPadding),
-                    child: Column(
-                      children: [
-                        Text(
-                          widget.product.name.toUpperCase(),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            letterSpacing: 2.5,
-                            fontWeight: FontWeight.w600,
+                    // TITLE + PRICE
+                    Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: horizontalPadding),
+                      child: Column(
+                        children: [
+                          Text(
+                            widget.product.name.toUpperCase(),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              letterSpacing: 2.5,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          priceText,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
+                          const SizedBox(height: 8),
+                          Text(
+                            priceText,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: gapTitleButtons),
+
+                    // BUTTONS
+                    // BUTTONS
+                    Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: horizontalPadding),
+                      child: Row(
+                        children: [
+                          // BUY NOW / LOGIN TO BUY NOW
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                final session = Supabase
+                                    .instance.client.auth.currentSession;
+                                final loggedIn = session != null;
+
+                                if (!loggedIn) {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                        builder: (_) => const LoginPage()),
+                                  );
+                                  return;
+                                }
+
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => CheckoutPage(
+                                        product: widget.product, quantity: 1),
+                                  ),
+                                );
+                              },
+                              child: Image.asset(
+                                widget.isLoggedIn
+                                    ? 'assets/images/buy_now.png'
+                                    : 'assets/images/login_buy_now.png',
+                                height: buttonHeight,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+
+                          // VERTICAL BAR
+                          Container(
+                            width: 2,
+                            height: buttonHeight * 0.9,
+                            margin: EdgeInsets.symmetric(
+                                horizontal: screenWidth * 0.03),
+                            color: Colors.white.withValues(alpha: 0.3),
+                          ),
+
+                          // ADD TO BAG
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                if (widget.onAddToBag != null) {
+                                  widget.onAddToBag!();
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Added to bag (mock)')),
+                                  );
+                                }
+                              },
+                              child: Image.asset(
+                                'assets/images/add_to_bag.png',
+                                height: buttonHeight,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: gapButtonsDescription),
+
+                    // DESCRIPTION
+                    Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: horizontalPadding),
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Text(
+                          'DESCRIPTION:',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 10,
+                            letterSpacing: 2,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-
-                  SizedBox(height: gapTitleButtons),
-
-                  // BUTTONS
-                  // BUTTONS
-                  Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: horizontalPadding),
-                    child: Row(
-                      children: [
-                        // BUY NOW / LOGIN TO BUY NOW
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              final session =
-                                  Supabase.instance.client.auth.currentSession;
-                              final loggedIn = session != null;
-
-                              if (!loggedIn) {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                      builder: (_) => const LoginPage()),
-                                );
-                                return;
-                              }
-
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => CheckoutPage(
-                                      product: widget.product, quantity: 1),
-                                ),
-                              );
-                            },
-                            child: Image.asset(
-                              widget.isLoggedIn
-                                  ? 'assets/images/buy_now.png'
-                                  : 'assets/images/login_buy_now.png',
-                              height: buttonHeight,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ),
-
-                        // VERTICAL BAR
-                        Container(
-                          width: 2,
-                          height: buttonHeight * 0.9,
-                          margin: EdgeInsets.symmetric(
-                              horizontal: screenWidth * 0.03),
-                          color: Colors.white.withValues(alpha: 0.3),
-                        ),
-
-                        // ADD TO BAG
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              if (widget.onAddToBag != null) {
-                                widget.onAddToBag!();
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Added to bag (mock)')),
-                                );
-                              }
-                            },
-                            child: Image.asset(
-                              'assets/images/add_to_bag.png',
-                              height: buttonHeight,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  SizedBox(height: gapButtonsDescription),
-
-                  // DESCRIPTION
-                  Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: horizontalPadding),
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Text(
-                        'DESCRIPTION:',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 10,
-                          letterSpacing: 2,
-                          fontWeight: FontWeight.bold,
-                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: horizontalPadding),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: descLines.map((line) {
-                        final display = '•  $line';
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Text(
-                            display,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                              height: 1.4,
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: horizontalPadding),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: descLines.map((line) {
+                          final display = '•  $line';
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: Text(
+                              display,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                                height: 1.4,
+                              ),
                             ),
-                          ),
-                        );
-                      }).toList(),
+                          );
+                        }).toList(),
+                      ),
                     ),
-                  ),
-                  ProductRatingPreview(product: widget.product),
-                  SizedBox(height: screenHeight * 0.06),
-                ]),
+                    ProductRatingPreview(product: widget.product),
+                    SizedBox(height: screenHeight * 0.06),
+                  ]),
+                ),
               ),
             ),
           ],

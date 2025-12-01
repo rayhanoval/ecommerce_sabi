@@ -20,6 +20,10 @@ class _AdminReviewPageState extends State<AdminReviewPage> {
     _fetchReviews();
   }
 
+  Future<void> _refreshReviews() async {
+    await _fetchReviews();
+  }
+
   Future<void> _fetchReviews() async {
     setState(() => _isLoading = true);
     try {
@@ -84,13 +88,25 @@ class _AdminReviewPageState extends State<AdminReviewPage> {
                 ? const Center(
                     child: CircularProgressIndicator(color: Colors.white))
                 : _reviews.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No reviews yet',
-                          style: TextStyle(color: Colors.white54),
+                    ? RefreshIndicator(
+                        onRefresh: _refreshReviews,
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            SizedBox(height: 200),
+                            Center(
+                              child: Text(
+                                'No reviews yet',
+                                style: TextStyle(color: Colors.white54),
+                              ),
+                            ),
+                          ],
                         ),
                       )
-                    : ListView.builder(
+                    : RefreshIndicator(
+                        onRefresh: _refreshReviews,
+                        child: ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.all(16),
                         itemCount: _reviews.length,
                         itemBuilder: (context, index) {
@@ -102,7 +118,7 @@ class _AdminReviewPageState extends State<AdminReviewPage> {
                         },
                       ),
           ),
-        ],
+      )],
       ),
     );
   }

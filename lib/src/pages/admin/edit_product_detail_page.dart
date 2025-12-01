@@ -80,6 +80,12 @@ class _EditProductDetailPageState extends ConsumerState<EditProductDetailPage> {
     super.dispose();
   }
 
+  Future<void> _refreshData() async {
+    if (!widget.isNew && widget.product != null) {
+      await _loadExistingImages(widget.product!.id);
+    }
+  }
+
   Future<void> _save() async {
     if (_saving) return;
 
@@ -208,74 +214,78 @@ class _EditProductDetailPageState extends ConsumerState<EditProductDetailPage> {
             final horizontalPadding =
                 isWide ? constraints.maxWidth * 0.15 : 16.0;
 
-            return SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal: horizontalPadding,
-                vertical: 16,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _topBar(context, title),
-                  const SizedBox(height: 12),
-                  const Divider(
-                    color: Colors.white70,
-                    thickness: 1,
-                  ),
-                  const SizedBox(height: 12),
-                  _imageCarousel(constraints),
-                  const SizedBox(height: 28),
-                  CustomTextField(
-                    label: 'NAME',
-                    controller: _nameCtrl,
-                  ),
-                  const SizedBox(height: 12),
-                  CustomTextField(
-                    label: 'PRICE',
-                    controller: _priceCtrl,
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 12),
-                  CustomTextField(
-                    label: 'DESCRIPTION',
-                    controller: _descCtrl,
-                    maxLines: 4,
-                  ),
-                  const SizedBox(height: 12),
-                  CustomTextField(
-                    label: 'STOCK',
-                    controller: _stockCtrl,
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 28),
-                  Center(
-                    child: _saving
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : SizedBox(
-                            width: 110,
-                            child: ElevatedButton(
-                              onPressed: _save,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: Colors.black,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+            return RefreshIndicator(
+              onRefresh: _refreshData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                  vertical: 16,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _topBar(context, title),
+                    const SizedBox(height: 12),
+                    const Divider(
+                      color: Colors.white70,
+                      thickness: 1,
+                    ),
+                    const SizedBox(height: 12),
+                    _imageCarousel(constraints),
+                    const SizedBox(height: 28),
+                    CustomTextField(
+                      label: 'NAME',
+                      controller: _nameCtrl,
+                    ),
+                    const SizedBox(height: 12),
+                    CustomTextField(
+                      label: 'PRICE',
+                      controller: _priceCtrl,
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 12),
+                    CustomTextField(
+                      label: 'DESCRIPTION',
+                      controller: _descCtrl,
+                      maxLines: 4,
+                    ),
+                    const SizedBox(height: 12),
+                    CustomTextField(
+                      label: 'STOCK',
+                      controller: _stockCtrl,
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 28),
+                    Center(
+                      child: _saving
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : SizedBox(
+                              width: 110,
+                              child: ElevatedButton(
+                                onPressed: _save,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: Colors.black,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                 ),
-                              ),
-                              child: Text(
-                                widget.isNew ? 'SAVE' : 'SAVE',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.5,
-                                  fontSize: 12,
+                                child: Text(
+                                  widget.isNew ? 'SAVE' : 'SAVE',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.5,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             );
           },

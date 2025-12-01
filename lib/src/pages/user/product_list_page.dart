@@ -10,6 +10,7 @@ import '../../services/product_repository.dart';
 import '../login_page.dart';
 import 'product_detail_page.dart';
 import '../../models/product.dart';
+import '../../widgets/common/logout_dialog.dart';
 
 class ProductListPage extends ConsumerStatefulWidget {
   const ProductListPage({super.key});
@@ -44,6 +45,10 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
         setState(() => isLoggedIn = false);
       }
     });
+  }
+
+  Future<void> _refreshProducts() async {
+    setState(() {});
   }
 
   String _getName(dynamic item) {
@@ -164,140 +169,147 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      extendBodyBehindAppBar: false,
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
+        extendBodyBehindAppBar: false,
         backgroundColor: Colors.black,
-        elevation: 0,
-        toolbarHeight: 80,
-        flexibleSpace: Container(color: Colors.black),
-        title: Padding(
-          padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-          child: Image.asset(
-            'assets/images/sabi_catalog.png',
-            width: screenWidth * 0.38,
-            height: screenWidth * 0.14,
-            fit: BoxFit.contain,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: Colors.black,
+          elevation: 0,
+          toolbarHeight: 80,
+          flexibleSpace: Container(color: Colors.black),
+          title: Padding(
+            padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+            child: Image.asset(
+              'assets/images/sabi_catalog.png',
+              width: screenWidth * 0.38,
+              height: screenWidth * 0.14,
+              fit: BoxFit.contain,
+            ),
           ),
-        ),
-        centerTitle: false,
-        actions: [
-          if (!isLoggedIn)
-            Padding(
-              padding: const EdgeInsets.only(right: 12.0),
-              child: TextButton(
-                onPressed: () async {
-                  final result = await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginPage()),
-                  );
-                  if (result == true) {
-                    setState(() => isLoggedIn = true);
-                  }
-                },
-                child: Text(
-                  'LOGIN/SIGNUP',
-                  style: GoogleFonts.montserrat(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    letterSpacing: 1.2,
-                    fontWeight: FontWeight.w500,
+          centerTitle: false,
+          actions: [
+            if (!isLoggedIn)
+              Padding(
+                padding: const EdgeInsets.only(right: 12.0),
+                child: TextButton(
+                  onPressed: () async {
+                    final result = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginPage()),
+                    );
+                    if (result == true) {
+                      setState(() => isLoggedIn = true);
+                    }
+                  },
+                  child: Text(
+                    'LOGIN/SIGNUP',
+                    style: GoogleFonts.montserrat(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ),
-            ),
-          if (isLoggedIn) ...[
-            IconButton(
-              onPressed: () async {
-                await Supabase.instance.client.auth.signOut();
-                setState(() => isLoggedIn = false);
-              },
-              icon: const Icon(Icons.logout_outlined),
-              color: Colors.white70,
-              iconSize: 20,
-              padding: const EdgeInsets.only(right: 16),
-              tooltip: 'Logout',
-            ),
-            IconButton(
-              onPressed: () async {
-                final res = await Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const EditProfilePage()));
-                if (res == true) {
-                  // optionally refresh UI
-                }
-              },
-              icon: const Icon(Icons.person_outline),
-              color: Colors.white70,
-              iconSize: 20,
-              padding: const EdgeInsets.only(right: 16),
-              tooltip: 'Profile',
-            ),
-            IconButton(
-              onPressed: () {
-                // bisa buka cart page nanti
-              },
-              icon: const Icon(Icons.shopping_cart_outlined),
-              color: Colors.white70,
-              iconSize: 20,
-              padding: const EdgeInsets.only(right: 16),
-              tooltip: 'Cart',
-            ),
+            if (isLoggedIn) ...[
+              IconButton(
+                onPressed: () async {
+                  final confirm = await showLogoutDialog(context);
+                  if (confirm) {
+                    await Supabase.instance.client.auth.signOut();
+                    setState(() => isLoggedIn = false);
+                  }
+                },
+                icon: const Icon(Icons.logout_outlined),
+                color: Colors.white70,
+                iconSize: 20,
+                padding: const EdgeInsets.only(right: 16),
+                tooltip: 'Logout',
+              ),
+              IconButton(
+                onPressed: () async {
+                  final res = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const EditProfilePage()));
+                  if (res == true) {
+                    // optionally refresh UI
+                  }
+                },
+                icon: const Icon(Icons.person_outline),
+                color: Colors.white70,
+                iconSize: 20,
+                padding: const EdgeInsets.only(right: 16),
+                tooltip: 'Profile',
+              ),
+              IconButton(
+                onPressed: () {
+                  // bisa buka cart page nanti
+                },
+                icon: const Icon(Icons.shopping_cart_outlined),
+                color: Colors.white70,
+                iconSize: 20,
+                padding: const EdgeInsets.only(right: 16),
+                tooltip: 'Cart',
+              ),
+            ],
           ],
-        ],
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: FutureBuilder<List<dynamic>>(
-            future: ref.read(productRepositoryProvider).fetchAllProducts(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(child: Text("Error: ${snapshot.error}"));
-              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Center(child: Text("No products found"));
-              }
+        ),
+        body: RefreshIndicator(
+          onRefresh: _refreshProducts,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: FutureBuilder<List<dynamic>>(
+                future: ref.read(productRepositoryProvider).fetchAllProducts(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text("Error: ${snapshot.error}"));
+                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text("No products found"));
+                  }
 
-              final products = snapshot.data!;
-              return GenericGrid<dynamic>(
-                items: products,
-                responsive: false,
-                columns: 2,
-                spacing: 24,
-                childAspectRatio: 0.6,
-                padding: EdgeInsets.zero,
-                itemBuilder: (context, item, index) {
-                  final name = _getName(item);
-                  final price = _getPrice(item);
-                  final imgUrl = _getImageUrl(item);
+                  final products = snapshot.data!;
+                  return GenericGrid<dynamic>(
+                    items: products,
+                    responsive: false,
+                    columns: 2,
+                    spacing: 24,
+                    childAspectRatio: 0.6,
+                    padding: EdgeInsets.zero,
+                    itemBuilder: (context, item, index) {
+                      final name = _getName(item);
+                      final price = _getPrice(item);
+                      final imgUrl = _getImageUrl(item);
 
-                  return GestureDetector(
-                    onTap: () {
-                      final productModel = _toProduct(item);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProductDetailPage(
-                            product: productModel,
-                            isLoggedIn: isLoggedIn,
-                          ),
+                      return GestureDetector(
+                        onTap: () {
+                          final productModel = _toProduct(item);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ProductDetailPage(
+                                product: productModel,
+                                isLoggedIn: isLoggedIn,
+                              ),
+                            ),
+                          );
+                        },
+                        child: ProductCard(
+                          imgUrl: imgUrl,
+                          name: name,
+                          price: price,
                         ),
                       );
                     },
-                    child: ProductCard(
-                      imgUrl: imgUrl,
-                      name: name,
-                      price: price,
-                    ),
                   );
                 },
-              );
-            },
+              ),
+            ),
           ),
-        ),
-      ),
-    );
+        ));
   }
 }

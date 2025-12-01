@@ -7,6 +7,7 @@ import 'package:ecommerce_sabi/src/pages/admin/edit_product_page.dart';
 import 'package:ecommerce_sabi/src/pages/admin/process_order_page.dart';
 import 'package:ecommerce_sabi/src/pages/admin/admin_review_page.dart';
 import 'package:ecommerce_sabi/src/widgets/admin/admin_review_card.dart';
+import 'package:ecommerce_sabi/src/widgets/common/logout_dialog.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/product.dart';
 import '../../services/product_repository.dart';
@@ -33,7 +34,7 @@ class _AdminHomepageState extends ConsumerState<AdminHomepage> {
     _fetchDashboardData();
   }
 
-  void _fetchDashboardData() async {
+  Future<void> _fetchDashboardData() async {
     final session = Supabase.instance.client.auth.currentSession;
     final profile = await ref.read(authRepositoryProvider).getCurrentProfile();
     final role = profile?['role']?.toString().toLowerCase() ?? '';
@@ -129,13 +130,16 @@ class _AdminHomepageState extends ConsumerState<AdminHomepage> {
           if (isLoggedIn) ...[
             IconButton(
               onPressed: () async {
-                await Supabase.instance.client.auth.signOut();
-                setState(() => isLoggedIn = false);
-                if (context.mounted) {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SplashPage()),
-                  );
+                final confirm = await showLogoutDialog(context);
+                if (confirm) {
+                  await Supabase.instance.client.auth.signOut();
+                  setState(() => isLoggedIn = false);
+                  if (context.mounted) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SplashPage()),
+                    );
+                  }
                 }
               },
               icon: const Icon(Icons.logout_outlined),
@@ -154,70 +158,75 @@ class _AdminHomepageState extends ConsumerState<AdminHomepage> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
           ),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_role == 'owner') ...[
-                  // Product Container
+          child: RefreshIndicator(
+            onRefresh: _fetchDashboardData,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_role == 'owner') ...[
+                    // Product Container
+                    _DashboardSection(
+                      title: 'YOUR PRODUCT',
+                      isLoading: isLoading,
+                      children: products
+                          .map((p) => _ProductTile(product: p))
+                          .toList(),
+                      onViewAll: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const EditProductPage(),
+                          ),
+                        );
+                      },
+                      showViewAll: !isLoading && products.length >= 2,
+                    ),
+
+                    const SizedBox(height: 32),
+                  ],
+
+                  // Order Container
                   _DashboardSection(
-                    title: 'YOUR PRODUCT',
+                    title: 'NEW ORDER',
                     isLoading: isLoading,
-                    children:
-                        products.map((p) => _ProductTile(product: p)).toList(),
+                    children: orders.map((o) => _OrderTile(order: o)).toList(),
                     onViewAll: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const EditProductPage(),
+                          builder: (_) => const ProcessOrderPage(),
                         ),
                       );
                     },
-                    showViewAll: !isLoading && products.length >= 2,
+                    showViewAll: !isLoading && orders.isNotEmpty,
                   ),
 
                   const SizedBox(height: 32),
+
+                  // Review Container
+                  _DashboardSection(
+                    title: 'REPLY REVIEW',
+                    isLoading: isLoading,
+                    children: reviews
+                        .map((r) => AdminReviewCard(
+                              review: r,
+                              onReplySuccess: _fetchDashboardData,
+                            ))
+                        .toList(),
+                    onViewAll: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AdminReviewPage(),
+                        ),
+                      );
+                    },
+                    showViewAll: !isLoading && reviews.isNotEmpty,
+                  ),
                 ],
-
-                // Order Container
-                _DashboardSection(
-                  title: 'NEW ORDER',
-                  isLoading: isLoading,
-                  children: orders.map((o) => _OrderTile(order: o)).toList(),
-                  onViewAll: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ProcessOrderPage(),
-                      ),
-                    );
-                  },
-                  showViewAll: !isLoading && orders.isNotEmpty,
-                ),
-
-                const SizedBox(height: 32),
-
-                // Review Container
-                _DashboardSection(
-                  title: 'REPLY REVIEW',
-                  isLoading: isLoading,
-                  children: reviews
-                      .map((r) => AdminReviewCard(
-                            review: r,
-                            onReplySuccess: _fetchDashboardData,
-                          ))
-                      .toList(),
-                  onViewAll: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AdminReviewPage(),
-                      ),
-                    );
-                  },
-                  showViewAll: !isLoading && reviews.isNotEmpty,
-                ),
-              ],
+              ),
             ),
           ),
         ),

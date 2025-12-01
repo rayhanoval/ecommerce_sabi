@@ -504,9 +504,18 @@ class _ReviewPageState extends State<ReviewPage> {
                     });
 
                   if (rows.isEmpty) {
-                    return const Center(
-                        child: Text('No reviews yet',
-                            style: TextStyle(color: Colors.white70)));
+                    return RefreshIndicator(
+                      onRefresh: _loadReviewsAndAdd,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: const [
+                          SizedBox(height: 100),
+                          Center(
+                              child: Text('No reviews yet',
+                                  style: TextStyle(color: Colors.white70))),
+                        ],
+                      ),
+                    );
                   }
 
                   return RefreshIndicator(
