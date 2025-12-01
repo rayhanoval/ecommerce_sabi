@@ -294,18 +294,47 @@ class _ReviewPageState extends State<ReviewPage> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: widget.appBarAsset != null
-            ? Image.asset(widget.appBarAsset!, height: 36, fit: BoxFit.contain)
-            : const Text('Ratings & Reviews',
-                style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.black,
-        elevation: 0,
-        centerTitle: true,
-      ),
       body: SafeArea(
         child: Column(
           children: [
+            // HEADER
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 16, 12, 20),
+              child: Row(
+                children: [
+                  // back button
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new,
+                        color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                    splashRadius: 20,
+                  ),
+
+                  // logo SABI (centered)
+                  Expanded(
+                    child: Center(
+                      child: widget.appBarAsset != null
+                          ? Image.asset(
+                              widget.appBarAsset!,
+                              height: (screenWidth * 0.1).clamp(22.0, 38.0),
+                              fit: BoxFit.contain,
+                            )
+                          : Image.asset(
+                              'assets/images/sabi_putih.png',
+                              height: (screenWidth * 0.1).clamp(22.0, 38.0),
+                              fit: BoxFit.contain,
+                            ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 48), // spacer kanan
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // CONTENT
             // === header summary: CENTER the left box and ensure alignment ===
             Padding(
               padding: const EdgeInsets.all(12.0),
@@ -647,9 +676,9 @@ class _ReviewPageState extends State<ReviewPage> {
                 },
               ),
             ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
   }
 }

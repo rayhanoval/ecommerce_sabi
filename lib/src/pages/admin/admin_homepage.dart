@@ -207,7 +207,7 @@ class _AdminHomepageState extends ConsumerState<AdminHomepage> {
 
                   // Review Container
                   _DashboardSection(
-                    title: 'REPLY REVIEW',
+                    title: 'NEW REVIEW',
                     isLoading: isLoading,
                     children: reviews
                         .map((r) => AdminReviewCard(

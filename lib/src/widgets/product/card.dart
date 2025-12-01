@@ -5,6 +5,7 @@ class ProductCard extends StatelessWidget {
   final String name;
   final double price;
   final VoidCallback? onTap;
+  final bool isSoldOut;
 
   const ProductCard({
     super.key,
@@ -12,6 +13,7 @@ class ProductCard extends StatelessWidget {
     required this.name,
     required this.price,
     this.onTap,
+    this.isSoldOut = false,
   });
 
   @override
@@ -64,8 +66,12 @@ class ProductCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Rp ${price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+$)'), (m) => '${m[1]}.')}',
-              style: priceStyle,
+              isSoldOut
+                  ? 'SOLD OUT'
+                  : 'Rp ${price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+$)'), (m) => '${m[1]}.')}',
+              style: isSoldOut
+                  ? priceStyle.copyWith(color: Colors.red, letterSpacing: 1.2)
+                  : priceStyle,
             ),
           ],
         ),

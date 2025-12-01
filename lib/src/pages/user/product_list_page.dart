@@ -11,6 +11,7 @@ import '../login_page.dart';
 import 'product_detail_page.dart';
 import '../../models/product.dart';
 import '../../widgets/common/logout_dialog.dart';
+import 'user_order_page.dart';
 
 class ProductListPage extends ConsumerStatefulWidget {
   const ProductListPage({super.key});
@@ -89,6 +90,24 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
       return item.imgUrl?.toString() ?? item.image?.toString() ?? '';
     } catch (_) {
       return '';
+    }
+  }
+
+  int _getStock(dynamic item) {
+    if (item == null) return 0;
+    if (item is Map) {
+      final s = item['stock'];
+      if (s is int) return s;
+      if (s is String) return int.tryParse(s) ?? 0;
+      return 0;
+    }
+    try {
+      final s = item.stock;
+      if (s is int) return s;
+      if (s is String) return int.tryParse(s) ?? 0;
+      return 0;
+    } catch (_) {
+      return 0;
     }
   }
 
@@ -214,18 +233,27 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
               ),
             if (isLoggedIn) ...[
               IconButton(
-                onPressed: () async {
-                  final confirm = await showLogoutDialog(context);
-                  if (confirm) {
-                    await Supabase.instance.client.auth.signOut();
-                    setState(() => isLoggedIn = false);
-                  }
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const UserOrderPage()),
+                  );
                 },
-                icon: const Icon(Icons.logout_outlined),
+                icon: const Icon(Icons.receipt_long_outlined),
                 color: Colors.white70,
                 iconSize: 20,
                 padding: const EdgeInsets.only(right: 16),
-                tooltip: 'Logout',
+                tooltip: 'Order',
+              ),
+              IconButton(
+                onPressed: () {
+                  // bisa buka cart page nanti
+                },
+                icon: const Icon(Icons.shopping_cart_outlined),
+                color: Colors.white70,
+                iconSize: 20,
+                padding: const EdgeInsets.only(right: 16),
+                tooltip: 'Cart',
               ),
               IconButton(
                 onPressed: () async {
@@ -244,71 +272,144 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
                 tooltip: 'Profile',
               ),
               IconButton(
-                onPressed: () {
-                  // bisa buka cart page nanti
+                onPressed: () async {
+                  final confirm = await showLogoutDialog(context);
+                  if (confirm) {
+                    await Supabase.instance.client.auth.signOut();
+                    setState(() => isLoggedIn = false);
+                  }
                 },
-                icon: const Icon(Icons.shopping_cart_outlined),
+                icon: const Icon(Icons.logout_outlined),
                 color: Colors.white70,
                 iconSize: 20,
                 padding: const EdgeInsets.only(right: 16),
-                tooltip: 'Cart',
+                tooltip: 'Logout',
               ),
             ],
           ],
         ),
         body: RefreshIndicator(
           onRefresh: _refreshProducts,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: FutureBuilder<List<dynamic>>(
-                future: ref.read(productRepositoryProvider).fetchAllProducts(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text("Error: ${snapshot.error}"));
-                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text("No products found"));
-                  }
+          child: FutureBuilder<List<dynamic>>(
+            future: ref.read(productRepositoryProvider).fetchAllProducts(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: Text("Error: ${snapshot.error}"));
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text("No products found"));
+              }
 
-                  final products = snapshot.data!;
-                  return GenericGrid<dynamic>(
-                    items: products,
-                    responsive: false,
-                    columns: 2,
-                    spacing: 24,
-                    childAspectRatio: 0.6,
-                    padding: EdgeInsets.zero,
-                    itemBuilder: (context, item, index) {
-                      final name = _getName(item);
-                      final price = _getPrice(item);
-                      final imgUrl = _getImageUrl(item);
+              final allProducts = snapshot.data!;
+              final inStockProducts =
+                  allProducts.where((item) => _getStock(item) > 0).toList();
+              final soldOutProducts =
+                  allProducts.where((item) => _getStock(item) == 0).toList();
 
-                      return GestureDetector(
-                        onTap: () {
-                          final productModel = _toProduct(item);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ProductDetailPage(
-                                product: productModel,
-                                isLoggedIn: isLoggedIn,
+              return SafeArea(
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // In-stock products
+                        GenericGrid<dynamic>(
+                          items: inStockProducts,
+                          responsive: false,
+                          columns: 2,
+                          spacing: 24,
+                          childAspectRatio: 0.6,
+                          padding: EdgeInsets.zero,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemBuilder: (context, item, index) {
+                            final name = _getName(item);
+                            final price = _getPrice(item);
+                            final imgUrl = _getImageUrl(item);
+
+                            return GestureDetector(
+                              onTap: () {
+                                final productModel = _toProduct(item);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ProductDetailPage(
+                                      product: productModel,
+                                      isLoggedIn: isLoggedIn,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: ProductCard(
+                                imgUrl: imgUrl,
+                                name: name,
+                                price: price,
+                              ),
+                            );
+                          },
+                        ),
+                        // Sold-out section
+                        if (soldOutProducts.isNotEmpty) ...[
+                          const SizedBox(height: 32),
+                          const Divider(color: Colors.white24, thickness: 1),
+                          const SizedBox(height: 24),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 16.0),
+                            child: Text(
+                              'SOLD OUT',
+                              style: GoogleFonts.montserrat(
+                                color: Colors.white70,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.5,
                               ),
                             ),
-                          );
-                        },
-                        child: ProductCard(
-                          imgUrl: imgUrl,
-                          name: name,
-                          price: price,
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
+                          ),
+                          GenericGrid<dynamic>(
+                            items: soldOutProducts,
+                            responsive: false,
+                            columns: 2,
+                            spacing: 24,
+                            childAspectRatio: 0.6,
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemBuilder: (context, item, index) {
+                              final name = _getName(item);
+                              final imgUrl = _getImageUrl(item);
+
+                              return GestureDetector(
+                                onTap: () {
+                                  final productModel = _toProduct(item);
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ProductDetailPage(
+                                        product: productModel,
+                                        isLoggedIn: isLoggedIn,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: ProductCard(
+                                  imgUrl: imgUrl,
+                                  name: name,
+                                  price: 0,
+                                  isSoldOut: true,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ));
   }
