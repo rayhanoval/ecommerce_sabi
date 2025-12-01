@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/product.dart';
-import 'edit_address_page.dart';
+import 'user_order_page.dart';
 
 class CheckoutPage extends StatefulWidget {
   final Product product;
@@ -27,10 +27,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String _shippingMethod = "Regular";
   final String _paymentMethod = "Cash On Delivery";
   bool _isLoading = false;
+  late int _quantity;
 
   @override
   void initState() {
     super.initState();
+    _quantity = widget.quantity;
     _loadProfile();
   }
 
@@ -81,7 +83,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
-    final qty = widget.quantity;
+    final qty = _quantity;
     final basePrice = widget.product.price * qty;
     final shippingFee = _shippingMethod == "Regular" ? 10000 : 20000;
     final totalPrice = basePrice + shippingFee;
@@ -163,7 +165,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Order berhasil dibuat')),
         );
-        Navigator.of(context).pop();
+        // Navigate to user order page
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const UserOrderPage()),
+        );
       }
     } catch (e) {
       final msg = e is PostgrestException ? e.message : e.toString();
@@ -176,26 +181,27 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
+  void _incrementQuantity() {
+    if (_quantity < widget.product.stock) {
+      setState(() => _quantity++);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Maximum stock: ${widget.product.stock}')),
+      );
+    }
+  }
+
+  void _decrementQuantity() {
+    if (_quantity > 1) {
+      setState(() => _quantity--);
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
     _addressController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickAddress() async {
-    // navigate to EditAddressPage and await selected address map
-    final selected = await Navigator.of(context).push<Map<String, dynamic>?>(
-      MaterialPageRoute(builder: (_) => const EditAddressPage()),
-    );
-
-    if (selected != null && mounted) {
-      setState(() {
-        _addressController.text = (selected['address'] ?? '').toString();
-        _nameController.text =
-            (selected['name'] ?? _nameController.text).toString();
-      });
-    }
   }
 
   @override
@@ -209,7 +215,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final logoHeight = (w * 0.16).clamp(36.0, 64.0);
     final placeBtnHeight = (w * 0.12).clamp(44.0, 64.0);
 
-    final basePrice = widget.product.price * widget.quantity;
+    final basePrice = widget.product.price * _quantity;
     final shippingFee = _shippingMethod == "Regular" ? 10000 : 20000;
     final totalPrice = basePrice + shippingFee;
 
@@ -309,53 +315,32 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
                       SizedBox(height: h * 0.02),
 
-                      // ADDRESS = button to edit addresses
-                      GestureDetector(
-                        onTap: _pickAddress,
-                        child: sectionBox(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              labelChip('ADDRESS'),
-                              const SizedBox(height: 8),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _addressController,
-                                      readOnly: true,
-                                      maxLines: 3,
-                                      style:
-                                          const TextStyle(color: Colors.white),
-                                      decoration: InputDecoration(
-                                        hintText: 'Choose shipping address',
-                                        hintStyle: const TextStyle(
-                                            color: Colors.white54),
-                                        filled: true,
-                                        fillColor: Colors.white10,
-                                        border: OutlineInputBorder(
-                                          borderSide: BorderSide.none,
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 12, vertical: 12),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Column(
-                                    children: const [
-                                      Icon(Icons.chevron_right,
-                                          color: Colors.white70),
-                                    ],
-                                  )
-                                ],
+                      // ADDRESS (editable)
+                      sectionBox(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            labelChip('ADDRESS'),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _addressController,
+                              maxLines: 3,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Enter shipping address',
+                                hintStyle:
+                                    const TextStyle(color: Colors.white54),
+                                filled: true,
+                                fillColor: Colors.white10,
+                                border: OutlineInputBorder(
+                                  borderSide: BorderSide.none,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
 
@@ -431,7 +416,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
                       SizedBox(height: h * 0.02),
 
-                      // PRODUCT SUMMARY
+                      // PRODUCT SUMMARY with Quantity Controls
                       sectionBox(
                         child: Row(
                           children: [
@@ -462,9 +447,37 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold)),
                                   const SizedBox(height: 6),
-                                  Text('${widget.quantity}x',
-                                      style: const TextStyle(
-                                          color: Colors.white70)),
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        onPressed: _decrementQuantity,
+                                        icon: const Icon(
+                                            Icons.remove_circle_outline),
+                                        color: Colors.white70,
+                                        iconSize: 20,
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12),
+                                        child: Text('$_quantity',
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16)),
+                                      ),
+                                      IconButton(
+                                        onPressed: _incrementQuantity,
+                                        icon: const Icon(
+                                            Icons.add_circle_outline),
+                                        color: Colors.white70,
+                                        iconSize: 20,
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                      ),
+                                    ],
+                                  ),
                                   const SizedBox(height: 8),
                                   Text(_formatPrice(widget.product.price),
                                       style: const TextStyle(

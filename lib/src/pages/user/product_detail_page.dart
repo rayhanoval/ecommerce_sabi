@@ -268,6 +268,17 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          if (widget.product.stock > 0) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'Stock: ${widget.product.stock}',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.7),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -275,76 +286,93 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     SizedBox(height: gapTitleButtons),
 
                     // BUTTONS
-                    // BUTTONS
                     Padding(
                       padding:
                           EdgeInsets.symmetric(horizontal: horizontalPadding),
-                      child: Row(
-                        children: [
-                          // BUY NOW / LOGIN TO BUY NOW
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                final session = Supabase
-                                    .instance.client.auth.currentSession;
-                                final loggedIn = session != null;
+                      child: widget.product.stock == 0
+                          ? Container(
+                              height: buttonHeight,
+                              alignment: Alignment.center,
+                              child: const Text(
+                                'SOLD OUT',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                            )
+                          : Row(
+                              children: [
+                                // BUY NOW / LOGIN TO BUY NOW
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      final session = Supabase
+                                          .instance.client.auth.currentSession;
+                                      final loggedIn = session != null;
 
-                                if (!loggedIn) {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                        builder: (_) => const LoginPage()),
-                                  );
-                                  return;
-                                }
+                                      if (!loggedIn) {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const LoginPage()),
+                                        );
+                                        return;
+                                      }
 
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => CheckoutPage(
-                                        product: widget.product, quantity: 1),
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => CheckoutPage(
+                                              product: widget.product,
+                                              quantity: 1),
+                                        ),
+                                      );
+                                    },
+                                    child: Image.asset(
+                                      widget.isLoggedIn
+                                          ? 'assets/images/buy_now.png'
+                                          : 'assets/images/login_buy_now.png',
+                                      height: buttonHeight,
+                                      fit: BoxFit.contain,
+                                    ),
                                   ),
-                                );
-                              },
-                              child: Image.asset(
-                                widget.isLoggedIn
-                                    ? 'assets/images/buy_now.png'
-                                    : 'assets/images/login_buy_now.png',
-                                height: buttonHeight,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                          ),
+                                ),
 
-                          // VERTICAL BAR
-                          Container(
-                            width: 2,
-                            height: buttonHeight * 0.9,
-                            margin: EdgeInsets.symmetric(
-                                horizontal: screenWidth * 0.03),
-                            color: Colors.white.withValues(alpha: 0.3),
-                          ),
+                                // VERTICAL BAR
+                                Container(
+                                  width: 2,
+                                  height: buttonHeight * 0.9,
+                                  margin: EdgeInsets.symmetric(
+                                      horizontal: screenWidth * 0.03),
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                ),
 
-                          // ADD TO BAG
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                if (widget.onAddToBag != null) {
-                                  widget.onAddToBag!();
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text('Added to bag (mock)')),
-                                  );
-                                }
-                              },
-                              child: Image.asset(
-                                'assets/images/add_to_bag.png',
-                                height: buttonHeight,
-                                fit: BoxFit.contain,
-                              ),
+                                // ADD TO BAG
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      if (widget.onAddToBag != null) {
+                                        widget.onAddToBag!();
+                                      } else {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                              content:
+                                                  Text('Added to bag (mock)')),
+                                        );
+                                      }
+                                    },
+                                    child: Image.asset(
+                                      'assets/images/add_to_bag.png',
+                                      height: buttonHeight,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
                     ),
 
                     SizedBox(height: gapButtonsDescription),
