@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthException;
 import '../services/auth_repository.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
@@ -17,6 +18,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
@@ -59,32 +62,57 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    final success = await ref.read(authRepositoryProvider).register(
-          email,
-          password,
-          username: username, // PENTING: masuk ke kolom username
-        );
+    try {
+      final success = await ref.read(authRepositoryProvider).register(
+            email,
+            password,
+            username: username, // PENTING: masuk ke kolom username
+          );
 
-    setState(() => _loading = false);
+      setState(() => _loading = false);
 
-    if (success) {
+      if (success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Verification link sent to your email."),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.greenAccent,
+            ),
+          );
+
+          await Future.delayed(const Duration(seconds: 2));
+          if (mounted) Navigator.of(context).pop(true);
+        }
+      }
+    } on AuthException catch (e) {
+      setState(() => _loading = false);
+
+      String errorMessage;
+      if (e.code == 'EMAIL_TAKEN') {
+        errorMessage = 'Email is already registered';
+      } else if (e.code == 'USERNAME_TAKEN') {
+        errorMessage = 'Username is already taken';
+      } else {
+        errorMessage = 'Registration failed — ${e.message}';
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Verification link sent to your email."),
+          SnackBar(
+            content: Text(errorMessage),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.greenAccent,
+            backgroundColor: Colors.redAccent,
           ),
         );
-
-        await Future.delayed(const Duration(seconds: 2));
-        if (mounted) Navigator.of(context).pop(true);
       }
-    } else {
+    } catch (e) {
+      setState(() => _loading = false);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Registration failed — email might be registered."),
+            content: Text("Registration failed — please try again."),
             behavior: SnackBarBehavior.floating,
             backgroundColor: Colors.redAccent,
           ),
@@ -163,19 +191,32 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           // PASSWORD
                           TextFormField(
                             controller: _passwordController,
-                            obscureText: true,
+                            obscureText: _obscurePassword,
                             style: const TextStyle(color: Colors.white),
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Password',
-                              hintStyle: TextStyle(color: Colors.white54),
-                              enabledBorder: UnderlineInputBorder(
+                              hintStyle: const TextStyle(color: Colors.white54),
+                              enabledBorder: const UnderlineInputBorder(
                                 borderSide: BorderSide(color: Colors.white38),
                               ),
-                              focusedBorder: UnderlineInputBorder(
+                              focusedBorder: const UnderlineInputBorder(
                                 borderSide: BorderSide(color: Colors.white),
                               ),
                               contentPadding:
-                                  EdgeInsets.symmetric(vertical: 14),
+                                  const EdgeInsets.symmetric(vertical: 14),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: Colors.white54,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
                             ),
                             validator: _passwordValidator,
                           ),
@@ -184,19 +225,33 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           // CONFIRM PASSWORD
                           TextFormField(
                             controller: _confirmController,
-                            obscureText: true,
+                            obscureText: _obscureConfirmPassword,
                             style: const TextStyle(color: Colors.white),
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Confirm Password',
-                              hintStyle: TextStyle(color: Colors.white54),
-                              enabledBorder: UnderlineInputBorder(
+                              hintStyle: const TextStyle(color: Colors.white54),
+                              enabledBorder: const UnderlineInputBorder(
                                 borderSide: BorderSide(color: Colors.white38),
                               ),
-                              focusedBorder: UnderlineInputBorder(
+                              focusedBorder: const UnderlineInputBorder(
                                 borderSide: BorderSide(color: Colors.white),
                               ),
                               contentPadding:
-                                  EdgeInsets.symmetric(vertical: 14),
+                                  const EdgeInsets.symmetric(vertical: 14),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirmPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: Colors.white54,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscureConfirmPassword =
+                                        !_obscureConfirmPassword;
+                                  });
+                                },
+                              ),
                             ),
                             validator: _confirmValidator,
                           ),

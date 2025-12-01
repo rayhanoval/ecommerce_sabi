@@ -19,6 +19,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
+  bool _obscurePassword = true;
 
   String? _emailError;
   String? _passwordError;
@@ -188,15 +189,28 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           TextFormField(
                             controller: _passwordController,
                             style: const TextStyle(color: Colors.white),
-                            obscureText: true,
-                            decoration: const InputDecoration(
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
                               hintText: 'Password',
-                              hintStyle: TextStyle(color: Colors.white54),
-                              enabledBorder: UnderlineInputBorder(
+                              hintStyle: const TextStyle(color: Colors.white54),
+                              enabledBorder: const UnderlineInputBorder(
                                 borderSide: BorderSide(color: Colors.white38),
                               ),
-                              focusedBorder: UnderlineInputBorder(
+                              focusedBorder: const UnderlineInputBorder(
                                 borderSide: BorderSide(color: Colors.white),
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: Colors.white54,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
                               ),
                             ),
                             validator: _passwordValidator,

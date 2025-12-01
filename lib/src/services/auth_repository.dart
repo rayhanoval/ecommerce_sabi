@@ -37,16 +37,38 @@ class SupabaseAuthRepository implements AuthRepository {
     String? username,
   }) async {
     try {
+      // Check if email already exists
+      final emailCheck = await _client
+          .from('users')
+          .select('email')
+          .eq('email', email)
+          .maybeSingle();
+
+      if (emailCheck != null) {
+        throw AuthException('EMAIL_TAKEN', 'Email is already registered');
+      }
+
+      // Check if username already exists
+      final finalUsername = (username?.trim().isNotEmpty ?? false)
+          ? username!.trim()
+          : 'user_${DateTime.now().millisecondsSinceEpoch % 100000}';
+
+      final usernameCheck = await _client
+          .from('users')
+          .select('username')
+          .eq('username', finalUsername)
+          .maybeSingle();
+
+      if (usernameCheck != null) {
+        throw AuthException('USERNAME_TAKEN', 'Username is already taken');
+      }
+
       final res = await _client.auth.signUp(email: email, password: password);
       final user = res.user;
       if (user == null) {
         // debugPrint('register: signUp returned no user. res: $res');
         return false;
       }
-
-      final finalUsername = (username?.trim().isNotEmpty ?? false)
-          ? username!.trim()
-          : 'user_${DateTime.now().millisecondsSinceEpoch % 100000}';
 
       try {
         await _client.from('users').insert({
@@ -65,7 +87,7 @@ class SupabaseAuthRepository implements AuthRepository {
       return true;
     } catch (e) {
       // debugPrint('register error: $e');
-      return false;
+      rethrow;
     }
   }
 
