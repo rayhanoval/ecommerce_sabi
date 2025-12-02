@@ -56,17 +56,17 @@ class _UserOrderPageState extends State<UserOrderPage> {
       }
 
       // Fetch reviews for these products by this user
-      Set<String> reviewedProductIds = {};
+      Set<String> reviewedOrderItemIds = {};
       if (productIdsToCheck.isNotEmpty) {
         final reviewsRes = await _client
             .from('product_ratings')
-            .select('product_id')
+            .select('order_item_id')
             .eq('user_id', user.id)
             .inFilter('product_id', productIdsToCheck.toList());
 
         for (var r in reviewsRes) {
-          if (r['product_id'] != null) {
-            reviewedProductIds.add(r['product_id'].toString());
+          if (r['order_item_id'] != null) {
+            reviewedOrderItemIds.add(r['order_item_id'].toString());
           }
         }
       }
@@ -85,10 +85,10 @@ class _UserOrderPageState extends State<UserOrderPage> {
           if (items.isNotEmpty) {
             final firstItem = items.first;
             final product = firstItem['products'];
-            final productId =
-                product != null ? product['id']?.toString() : null;
+            final orderItemId = firstItem['id']?.toString();
 
-            if (productId != null && !reviewedProductIds.contains(productId)) {
+            if (orderItemId != null &&
+                !reviewedOrderItemIds.contains(orderItemId)) {
               filteredOrders.add(order);
             }
           }
@@ -180,7 +180,10 @@ class _UserOrderPageState extends State<UserOrderPage> {
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => SubmitReviewPage(product: product),
+          builder: (_) => SubmitReviewPage(
+            product: product,
+            orderItemId: firstItem['id'].toString(),
+          ),
         ),
       );
       // Refresh orders after review

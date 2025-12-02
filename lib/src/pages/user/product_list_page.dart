@@ -22,6 +22,7 @@ class ProductListPage extends ConsumerStatefulWidget {
 
 class _ProductListPageState extends ConsumerState<ProductListPage> {
   bool isLoggedIn = false;
+  bool _hasOrderNotification = false;
 
   @override
   void initState() {
@@ -42,14 +43,104 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
       final event = data.event;
       if (event == AuthChangeEvent.signedIn) {
         setState(() => isLoggedIn = true);
+        _checkOrderNotifications();
       } else if (event == AuthChangeEvent.signedOut) {
-        setState(() => isLoggedIn = false);
+        setState(() {
+          isLoggedIn = false;
+          _hasOrderNotification = false;
+        });
       }
     });
+
+    if (isLoggedIn) {
+      _checkOrderNotifications();
+    }
   }
 
   Future<void> _refreshProducts() async {
     setState(() {});
+    if (isLoggedIn) {
+      _checkOrderNotifications();
+    }
+  }
+
+  Future<void> _checkOrderNotifications() async {
+    if (!isLoggedIn) return;
+
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      // Fetch orders that are shipped or completed
+      final res = await Supabase.instance.client
+          .from('orders')
+          .select('*, order_items(*, products(*))')
+          .eq('user_id', user.id)
+          .inFilter('status', ['shipped', 'completed']);
+
+      bool hasNotif = false;
+      final List<Map<String, dynamic>> completedOrders = [];
+      final Set<String> productIdsToCheck = {};
+
+      for (var r in res) {
+        final order = Map<String, dynamic>.from(r);
+        final status = order['status']?.toString();
+
+        if (status == 'shipped') {
+          hasNotif = true;
+          break; // Found a shipped order, show notification
+        } else if (status == 'completed') {
+          completedOrders.add(order);
+          final items = (order['order_items'] as List?) ?? [];
+          if (items.isNotEmpty) {
+            final firstItem = items.first;
+            final product = firstItem['products'];
+            if (product != null && product['id'] != null) {
+              productIdsToCheck.add(product['id'].toString());
+            }
+          }
+        }
+      }
+
+      if (!hasNotif &&
+          completedOrders.isNotEmpty &&
+          productIdsToCheck.isNotEmpty) {
+        // Check reviews
+        final reviewsRes = await Supabase.instance.client
+            .from('product_ratings')
+            .select('order_item_id')
+            .eq('user_id', user.id)
+            .inFilter('product_id', productIdsToCheck.toList());
+
+        final Set<String> reviewedOrderItemIds = {};
+        for (var r in reviewsRes) {
+          if (r['order_item_id'] != null) {
+            reviewedOrderItemIds.add(r['order_item_id'].toString());
+          }
+        }
+
+        for (var order in completedOrders) {
+          final items = (order['order_items'] as List?) ?? [];
+          if (items.isNotEmpty) {
+            final firstItem = items.first;
+            final orderItemId = firstItem['id']?.toString();
+            if (orderItemId != null &&
+                !reviewedOrderItemIds.contains(orderItemId)) {
+              hasNotif = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _hasOrderNotification = hasNotif;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking notifications: $e');
+    }
   }
 
   String _getName(dynamic item) {
@@ -232,18 +323,38 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
                 ),
               ),
             if (isLoggedIn) ...[
-              IconButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const UserOrderPage()),
-                  );
-                },
-                icon: const Icon(Icons.receipt_long_outlined),
-                color: Colors.white70,
-                iconSize: 20,
-                padding: const EdgeInsets.only(right: 16),
-                tooltip: 'Order',
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const UserOrderPage()),
+                      );
+                      _checkOrderNotifications();
+                    },
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    color: Colors.white70,
+                    iconSize: 20,
+                    padding: const EdgeInsets.only(right: 16),
+                    tooltip: 'Order',
+                  ),
+                  if (_hasOrderNotification)
+                    Positioned(
+                      right: 12,
+                      top: 8,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               IconButton(
                 onPressed: () {

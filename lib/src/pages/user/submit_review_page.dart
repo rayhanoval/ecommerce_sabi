@@ -8,8 +8,13 @@ import '../../models/product.dart';
 
 class SubmitReviewPage extends StatefulWidget {
   final Product product;
+  final String orderItemId;
 
-  const SubmitReviewPage({super.key, required this.product});
+  const SubmitReviewPage({
+    super.key,
+    required this.product,
+    required this.orderItemId,
+  });
 
   @override
   State<SubmitReviewPage> createState() => _SubmitReviewPageState();
@@ -109,6 +114,7 @@ class _SubmitReviewPageState extends State<SubmitReviewPage> {
       await _client.from('product_ratings').insert({
         'user_id': userId,
         'product_id': widget.product.id,
+        'order_item_id': widget.orderItemId,
         'rating': _rating,
         'comment': _commentController.text.trim(),
         'image_url': jsonEncode(imageUrls),
