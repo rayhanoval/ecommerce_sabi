@@ -12,6 +12,7 @@ import 'product_detail_page.dart';
 import '../../models/product.dart';
 import '../../widgets/common/logout_dialog.dart';
 import 'user_order_page.dart';
+import 'shopping_cart_page.dart';
 
 class ProductListPage extends ConsumerStatefulWidget {
   const ProductListPage({super.key});
@@ -358,9 +359,12 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
               ),
               IconButton(
                 onPressed: () {
-                  // bisa buka cart page nanti
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ShoppingCartPage()),
+                  );
                 },
-                icon: const Icon(Icons.shopping_cart_outlined),
+                icon: const Icon(Icons.shopping_bag_outlined),
                 color: Colors.white70,
                 iconSize: 20,
                 padding: const EdgeInsets.only(right: 16),

@@ -43,4 +43,21 @@ class Product {
       ratingAvg: double.tryParse(json['rating_avg'].toString()) ?? 0.0,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'price': price,
+      'description': description,
+      'stock': stock,
+      'rating': rating,
+      'is_active': isActive,
+      'img_url': imgUrl,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+      'rating_count': ratingCount,
+      'rating_avg': ratingAvg,
+    };
+  }
 }

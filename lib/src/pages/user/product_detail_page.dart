@@ -352,16 +352,75 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                 // ADD TO BAG
                                 Expanded(
                                   child: GestureDetector(
-                                    onTap: () {
-                                      if (widget.onAddToBag != null) {
-                                        widget.onAddToBag!();
-                                      } else {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content:
-                                                  Text('Added to bag (mock)')),
+                                    onTap: () async {
+                                      final session = Supabase
+                                          .instance.client.auth.currentSession;
+                                      if (session == null) {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const LoginPage()),
                                         );
+                                        return;
+                                      }
+
+                                      try {
+                                        final user = session.user;
+                                        final productId = widget.product.id;
+
+                                        // Check if item already exists in cart
+                                        final existing = await Supabase
+                                            .instance.client
+                                            .from('carts')
+                                            .select()
+                                            .eq('user_id', user.id)
+                                            .eq('product_id', productId)
+                                            .maybeSingle();
+
+                                        if (existing != null) {
+                                          // Update quantity
+                                          final currentQty =
+                                              existing['quantity'] as int;
+                                          await Supabase.instance.client
+                                              .from('carts')
+                                              .update({
+                                            'quantity': currentQty + 1,
+                                            'updated_at': DateTime.now()
+                                                .toIso8601String(),
+                                          }).eq('id', existing['id']);
+                                        } else {
+                                          // Insert new
+                                          await Supabase.instance.client
+                                              .from('carts')
+                                              .insert({
+                                            'user_id': user.id,
+                                            'product_id': productId,
+                                            'quantity': 1,
+                                            'created_at': DateTime.now()
+                                                .toIso8601String(),
+                                            'updated_at': DateTime.now()
+                                                .toIso8601String(),
+                                          });
+                                        }
+
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                                content: Text(
+                                                    'Added to bag successfully')),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        debugPrint('Error adding to bag: $e');
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                                content: Text(
+                                                    'Failed to add to bag: $e')),
+                                          );
+                                        }
                                       }
                                     },
                                     child: Image.asset(

@@ -5,13 +5,15 @@ import '../../models/product.dart';
 import 'user_order_page.dart';
 
 class CheckoutPage extends StatefulWidget {
-  final Product product;
+  final Product? product;
   final int quantity;
+  final List<Map<String, dynamic>>? cartItems;
 
   const CheckoutPage({
     super.key,
-    required this.product,
+    this.product,
     this.quantity = 1,
+    this.cartItems,
   });
 
   @override
@@ -83,10 +85,35 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
-    final qty = _quantity;
-    final basePrice = widget.product.price * qty;
+    // Determine items to checkout
+    List<Map<String, dynamic>> itemsToCheckout = [];
+    if (widget.cartItems != null && widget.cartItems!.isNotEmpty) {
+      itemsToCheckout = widget.cartItems!;
+    } else if (widget.product != null) {
+      itemsToCheckout = [
+        {
+          'products': widget.product!.toJson(),
+          'quantity': _quantity,
+          // 'id' might be missing if it's direct buy, but we don't need cart id here for logic except deletion
+        }
+      ];
+    } else {
+      return; // Should not happen
+    }
+
+    // Calculate total
+    double totalBasePrice = 0;
+    for (var item in itemsToCheckout) {
+      final p = item['products'];
+      final price = (p['price'] is num)
+          ? (p['price'] as num).toDouble()
+          : double.tryParse(p['price']?.toString() ?? '0') ?? 0.0;
+      final qty = item['quantity'] as int;
+      totalBasePrice += (price * qty);
+    }
+
     final shippingFee = _shippingMethod == "Regular" ? 10000 : 20000;
-    final totalPrice = basePrice + shippingFee;
+    final totalPrice = totalBasePrice + shippingFee;
 
     final name = _nameController.text.trim();
     final address = _addressController.text.trim();
@@ -101,30 +128,30 @@ class _CheckoutPageState extends State<CheckoutPage> {
     setState(() => _isLoading = true);
 
     try {
-      // ambil stock & harga terbaru
-      final productResp = await supabase
-          .from('products')
-          .select('stock, price')
-          .eq('id', widget.product.id)
-          .maybeSingle();
+      // Validate stock for all items
+      for (var item in itemsToCheckout) {
+        final p = item['products'];
+        final productId = p['id'].toString();
+        final qty = item['quantity'] as int;
 
-      if (productResp == null) throw Exception('Produk tidak ditemukan');
+        final productResp = await supabase
+            .from('products')
+            .select('stock, name')
+            .eq('id', productId)
+            .maybeSingle();
 
-      final prod = Map<String, dynamic>.from(productResp);
-      final currentStock = (prod['stock'] is int)
-          ? prod['stock'] as int
-          : int.tryParse((prod['stock'] ?? '0').toString()) ?? 0;
-      final productPrice = (prod['price'] is num)
-          ? (prod['price'] as num).toDouble()
-          : double.tryParse((prod['price'] ?? '0').toString()) ?? 0.0;
-
-      if (currentStock < qty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Stok tidak cukup (tersisa $currentStock)')),
-          );
+        if (productResp == null) {
+          throw Exception('Produk ${p['name']} tidak ditemukan');
         }
-        return;
+
+        final currentStock = (productResp['stock'] is int)
+            ? productResp['stock'] as int
+            : int.tryParse((productResp['stock'] ?? '0').toString()) ?? 0;
+
+        if (currentStock < qty) {
+          throw Exception(
+              'Stok ${productResp['name']} tidak cukup (tersisa $currentStock)');
+        }
       }
 
       // insert order
@@ -145,21 +172,47 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
       final orderId = orderMap['id'].toString();
 
-      // insert order item
-      await supabase.from('order_items').insert({
-        'order_id': orderId,
-        'product_id': widget.product.id,
-        'quantity': qty,
-        'price': productPrice,
-        'subtotal': productPrice * qty,
-        'created_at': DateTime.now().toUtc().toIso8601String(),
-      });
+      // insert order items and update stock
+      for (var item in itemsToCheckout) {
+        final p = item['products'];
+        final productId = p['id'].toString();
+        final qty = item['quantity'] as int;
+        final price = (p['price'] is num)
+            ? (p['price'] as num).toDouble()
+            : double.tryParse(p['price']?.toString() ?? '0') ?? 0.0;
 
-      // update stock
-      await supabase.from('products').update({
-        'stock': currentStock - qty,
-        'updated_at': DateTime.now().toUtc().toIso8601String()
-      }).eq('id', widget.product.id);
+        await supabase.from('order_items').insert({
+          'order_id': orderId,
+          'product_id': productId,
+          'quantity': qty,
+          'price': price,
+          'subtotal': price * qty,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        });
+
+        // Decrement stock (fetching fresh stock again to be safe or using rpc would be better, but simple update here)
+        // We already checked stock, but race condition possible. For now simple update.
+        // To be safer, we could use an RPC or re-read.
+        // Let's re-read to be slightly safer or just decrement from what we checked.
+        // We'll just decrement.
+        final productResp = await supabase
+            .from('products')
+            .select('stock')
+            .eq('id', productId)
+            .single();
+        final currentStock = productResp['stock'] as int;
+
+        await supabase.from('products').update({
+          'stock': currentStock - qty,
+          'updated_at': DateTime.now().toUtc().toIso8601String()
+        }).eq('id', productId);
+      }
+
+      // If from cart, delete items from cart
+      if (widget.cartItems != null && widget.cartItems!.isNotEmpty) {
+        final cartIds = widget.cartItems!.map((e) => e['id']).toList();
+        await supabase.from('carts').delete().inFilter('id', cartIds);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -182,11 +235,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   void _incrementQuantity() {
-    if (_quantity < widget.product.stock) {
+    if (widget.product == null) return; // Disable for cart mode for now
+    if (_quantity < widget.product!.stock) {
       setState(() => _quantity++);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Stock hanya tersisa: ${widget.product.stock}')),
+        SnackBar(
+            content: Text('Stock hanya tersisa: ${widget.product!.stock}')),
       );
     }
   }
@@ -215,7 +270,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final logoHeight = (w * 0.16).clamp(36.0, 64.0);
     final placeBtnHeight = (w * 0.12).clamp(44.0, 64.0);
 
-    final basePrice = widget.product.price * _quantity;
+    // Calculate total
+    double basePrice = 0;
+    if (widget.cartItems != null && widget.cartItems!.isNotEmpty) {
+      for (var item in widget.cartItems!) {
+        final p = item['products'];
+        final price = (p['price'] is num)
+            ? (p['price'] as num).toDouble()
+            : double.tryParse(p['price']?.toString() ?? '0') ?? 0.0;
+        final qty = item['quantity'] as int;
+        basePrice += (price * qty);
+      }
+    } else if (widget.product != null) {
+      basePrice = widget.product!.price * _quantity;
+    }
+
     final shippingFee = _shippingMethod == "Regular" ? 10000 : 20000;
     final totalPrice = basePrice + shippingFee;
 
@@ -416,79 +485,145 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
                       SizedBox(height: h * 0.02),
 
-                      // PRODUCT SUMMARY with Quantity Controls
-                      sectionBox(
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                width: (w * 0.26).clamp(70.0, 110.0),
-                                height: (w * 0.18).clamp(56.0, 90.0),
-                                color: Colors.grey[900],
-                                child: widget.product.imgUrl.isNotEmpty
-                                    ? Image.network(widget.product.imgUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            const Icon(
-                                                Icons.image_not_supported,
-                                                color: Colors.white24))
-                                    : const Icon(Icons.image,
-                                        color: Colors.white24),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                      // PRODUCT SUMMARY
+                      if (widget.cartItems != null &&
+                          widget.cartItems!.isNotEmpty) ...[
+                        // List view for cart items
+                        ...widget.cartItems!.map((item) {
+                          final p = item['products'];
+                          final name = p['name'] ?? 'Unknown';
+                          final price = (p['price'] is num)
+                              ? (p['price'] as num).toDouble()
+                              : 0.0;
+                          final imgUrl = p['img_url'] ?? '';
+                          final qty = item['quantity'];
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: sectionBox(
+                              child: Row(
                                 children: [
-                                  Text(widget.product.name.toUpperCase(),
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    children: [
-                                      IconButton(
-                                        onPressed: _decrementQuantity,
-                                        icon: const Icon(
-                                            Icons.remove_circle_outline),
-                                        color: Colors.white70,
-                                        iconSize: 20,
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 12),
-                                        child: Text('$_quantity',
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      width: (w * 0.26).clamp(70.0, 110.0),
+                                      height: (w * 0.18).clamp(56.0, 90.0),
+                                      color: Colors.grey[900],
+                                      child: imgUrl.isNotEmpty
+                                          ? Image.network(imgUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  const Icon(
+                                                      Icons.image_not_supported,
+                                                      color: Colors.white24))
+                                          : const Icon(Icons.image,
+                                              color: Colors.white24),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(name.toString().toUpperCase(),
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 6),
+                                        Text('${qty}x',
                                             style: const TextStyle(
                                                 color: Colors.white,
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 16)),
-                                      ),
-                                      IconButton(
-                                        onPressed: _incrementQuantity,
-                                        icon: const Icon(
-                                            Icons.add_circle_outline),
-                                        color: Colors.white70,
-                                        iconSize: 20,
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                    ],
+                                        const SizedBox(height: 8),
+                                        Text(_formatPrice(price),
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(_formatPrice(widget.product.price),
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold)),
                                 ],
                               ),
                             ),
-                          ],
+                          );
+                        }),
+                      ] else if (widget.product != null) ...[
+                        // Single product view
+                        sectionBox(
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  width: (w * 0.26).clamp(70.0, 110.0),
+                                  height: (w * 0.18).clamp(56.0, 90.0),
+                                  color: Colors.grey[900],
+                                  child: widget.product!.imgUrl.isNotEmpty
+                                      ? Image.network(widget.product!.imgUrl,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              const Icon(
+                                                  Icons.image_not_supported,
+                                                  color: Colors.white24))
+                                      : const Icon(Icons.image,
+                                          color: Colors.white24),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(widget.product!.name.toUpperCase(),
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          onPressed: _decrementQuantity,
+                                          icon: const Icon(
+                                              Icons.remove_circle_outline),
+                                          color: Colors.white70,
+                                          iconSize: 20,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12),
+                                          child: Text('$_quantity',
+                                              style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16)),
+                                        ),
+                                        IconButton(
+                                          onPressed: _incrementQuantity,
+                                          icon: const Icon(
+                                              Icons.add_circle_outline),
+                                          color: Colors.white70,
+                                          iconSize: 20,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(_formatPrice(widget.product!.price),
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
 
                       SizedBox(height: h * 0.03),
 
