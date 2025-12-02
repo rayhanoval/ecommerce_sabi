@@ -186,7 +186,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       setState(() => _quantity++);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Maximum stock: ${widget.product.stock}')),
+        SnackBar(content: Text('Stock hanya tersisa: ${widget.product.stock}')),
       );
     }
   }

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ecommerce_sabi/src/models/product.dart';
+import 'dart:convert';
+import 'package:ecommerce_sabi/src/widgets/review_image_gallery.dart';
 import 'package:ecommerce_sabi/src/pages/user/review_page.dart';
 
 class ProductRatingPreview extends StatefulWidget {
@@ -54,7 +56,7 @@ class _ProductRatingPreviewState extends State<ProductRatingPreview> {
       final res = await _client
           .from('product_ratings')
           .select(
-              'id, rating, comment, created_at, user_id, users(display_name,username,avatar_url)')
+              'id, rating, comment, created_at, user_id, image_url, users(display_name,username,avatar_url)')
           .eq('product_id', widget.product.id)
           .order('created_at', ascending: false)
           .limit(10); // fetch some rows to compute avg/count, we'll show top 3
@@ -297,6 +299,21 @@ class _ProductRatingPreviewState extends State<ProductRatingPreview> {
                           ? r['rating'] as int
                           : int.tryParse((r['rating'] ?? '').toString()) ?? 0;
 
+                      final rawImage = r['image_url']?.toString();
+                      List<String> images = [];
+                      if (rawImage != null && rawImage.isNotEmpty) {
+                        try {
+                          final decoded = jsonDecode(rawImage);
+                          if (decoded is List) {
+                            images = decoded.map((e) => e.toString()).toList();
+                          } else {
+                            images = [rawImage];
+                          }
+                        } catch (_) {
+                          images = [rawImage];
+                        }
+                      }
+
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12.0),
                         child: Row(
@@ -342,6 +359,13 @@ class _ProductRatingPreviewState extends State<ProductRatingPreview> {
                                     Text(comment,
                                         style: const TextStyle(
                                             color: Colors.white70)),
+                                    if (images.isNotEmpty) ...[
+                                      const SizedBox(height: 12),
+                                      ReviewImageGallery(
+                                        images: images,
+                                        heroTagPrefix: 'preview_${r['id']}',
+                                      ),
+                                    ],
                                   ]),
                             ),
                           ],
