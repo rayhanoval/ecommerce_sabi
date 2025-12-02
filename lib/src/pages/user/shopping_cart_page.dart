@@ -90,6 +90,50 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     return total;
   }
 
+  Future<void> _updateQuantity(String cartId, int newQuantity) async {
+    if (newQuantity < 1) return;
+
+    try {
+      await _client.from('carts').update({
+        'quantity': newQuantity,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', cartId);
+
+      // Update local state
+      setState(() {
+        final index =
+            _cartItems.indexWhere((item) => item['id'].toString() == cartId);
+        if (index != -1) {
+          _cartItems[index]['quantity'] = newQuantity;
+        }
+      });
+    } catch (e) {
+      debugPrint('Error updating quantity: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update quantity: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _incrementQuantity(
+      String cartId, int currentQty, int stock) async {
+    if (currentQty < stock) {
+      await _updateQuantity(cartId, currentQty + 1);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Stock hanya tersisa: $stock')),
+      );
+    }
+  }
+
+  void _decrementQuantity(String cartId, int currentQty) {
+    if (currentQty > 1) {
+      _updateQuantity(cartId, currentQty - 1);
+    }
+  }
+
   Future<void> _checkout() async {
     if (_selectedItemIds.isEmpty) return;
 
@@ -97,26 +141,10 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
         .where((item) => _selectedItemIds.contains(item['id'].toString()))
         .toList();
 
-    // Navigate to checkout with selected items
-    // We need to update CheckoutPage to accept a list of items
-    // For now, we'll assume CheckoutPage will be updated shortly.
-    // Passing the first item as a placeholder if strictly needed by current signature,
-    // but ideally we pass the list.
-
-    // Since we are in the middle of refactoring, let's try to pass what we can.
-    // The plan says we will update CheckoutPage.
-    // So here I will assume the new signature or pass data that the new signature will use.
-
-    // For this step, I'll just navigate. The CheckoutPage update is next.
-    // I'll pass the list as an argument if possible, or use a new constructor.
-
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => CheckoutPage(
-          // We will modify CheckoutPage to accept this list.
-          // For now, I'll pass the first product to satisfy the current required param
-          // and pass the list as a new param (which I'll add in the next step).
           product: Product.fromJson(selectedItems.first['products']),
           cartItems: selectedItems,
         ),
@@ -265,13 +293,51 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                                             letterSpacing: 1,
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${quantity}x',
-                                          style: const TextStyle(
-                                            color: Colors.white54,
-                                            fontSize: 12,
-                                          ),
+                                        const SizedBox(height: 6),
+                                        // Quantity controls
+                                        Row(
+                                          children: [
+                                            IconButton(
+                                              onPressed: () =>
+                                                  _decrementQuantity(
+                                                      id, quantity),
+                                              icon: const Icon(
+                                                  Icons.remove_circle_outline),
+                                              color: Colors.white70,
+                                              iconSize: 18,
+                                              padding: EdgeInsets.zero,
+                                              constraints:
+                                                  const BoxConstraints(),
+                                            ),
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 12),
+                                              child: Text(
+                                                '$quantity',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ),
+                                            IconButton(
+                                              onPressed: () {
+                                                final stock =
+                                                    product['stock'] ?? 0;
+                                                _incrementQuantity(
+                                                    id, quantity, stock);
+                                              },
+                                              icon: const Icon(
+                                                  Icons.add_circle_outline),
+                                              color: Colors.white70,
+                                              iconSize: 18,
+                                              padding: EdgeInsets.zero,
+                                              constraints:
+                                                  const BoxConstraints(),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
