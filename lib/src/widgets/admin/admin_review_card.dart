@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+import '../../widgets/review_image_gallery.dart';
 
 class AdminReviewCard extends StatefulWidget {
   final Map<String, dynamic> review;
@@ -75,6 +77,21 @@ class _AdminReviewCardState extends State<AdminReviewCard> {
     final rating = widget.review['rating'] ?? 0;
     final comment = widget.review['comment'] ?? '';
     final reply = widget.review['reply'];
+
+    final rawImage = widget.review['image_url']?.toString();
+    List<String> images = [];
+    if (rawImage != null && rawImage.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawImage);
+        if (decoded is List) {
+          images = decoded.map((e) => e.toString()).toList();
+        } else {
+          images = [rawImage];
+        }
+      } catch (_) {
+        images = [rawImage];
+      }
+    }
 
     final formattedPrice =
         NumberFormat.currency(locale: 'id_ID', symbol: 'RP.', decimalDigits: 0)
@@ -204,6 +221,13 @@ class _AdminReviewCardState extends State<AdminReviewCard> {
                     style: TextStyle(color: Colors.white54, letterSpacing: 2),
                   ),
                 ),
+                if (images.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  ReviewImageGallery(
+                    images: images,
+                    heroTagPrefix: widget.review['id'].toString(),
+                  ),
+                ],
               ],
             ),
           ),

@@ -440,7 +440,10 @@ class _ReviewPageState extends State<ReviewPage> {
                                           color: Colors.white70)),
                                   if (images.isNotEmpty) ...[
                                     const SizedBox(height: 12),
-                                    ReviewImageGallery(images: images),
+                                    ReviewImageGallery(
+                                      images: images,
+                                      heroTagPrefix: r['id'].toString(),
+                                    ),
                                   ],
                                   if (r['reply'] != null &&
                                       r['reply'].toString().isNotEmpty) ...[
