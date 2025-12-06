@@ -90,6 +90,24 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     return total;
   }
 
+  Future<void> _deleteItem(String cartId) async {
+    try {
+      await _client.from('carts').delete().eq('id', cartId);
+
+      setState(() {
+        _cartItems.removeWhere((item) => item['id'].toString() == cartId);
+        _selectedItemIds.remove(cartId);
+      });
+    } catch (e) {
+      debugPrint('Error deleting item: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete item: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _updateQuantity(String cartId, int newQuantity) async {
     if (newQuantity < 1) return;
 
@@ -122,15 +140,20 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
     if (currentQty < stock) {
       await _updateQuantity(cartId, currentQty + 1);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Stock hanya tersisa: $stock')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Stock hanya tersisa: $stock')),
+        );
+      }
     }
   }
 
   void _decrementQuantity(String cartId, int currentQty) {
     if (currentQty > 1) {
       _updateQuantity(cartId, currentQty - 1);
+    } else {
+      // Logic delete item jika quantity 1 dan dipencet minus
+      _deleteItem(cartId);
     }
   }
 
@@ -222,127 +245,167 @@ class _ShoppingCartPageState extends State<ShoppingCartPage> {
                           final quantity = item['quantity'] ?? 1;
                           final isSelected = _selectedItemIds.contains(id);
 
-                          return InkWell(
-                            onTap: () => _toggleItem(id),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
+                          return Dismissible(
+                            key: Key(id),
+                            direction: DismissDirection.endToStart,
+                            onDismissed: (direction) {
+                              _deleteItem(id);
+                            },
+                            background: Container(
                               decoration: BoxDecoration(
-                                border: Border.all(color: Colors.white24),
                                 borderRadius: BorderRadius.circular(8),
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFFD32F2F),
+                                    Color(0xFFB71C1C),
+                                  ],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                ),
                               ),
-                              child: Row(
+                              alignment: Alignment.centerRight,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
-                                  // Checkbox
-                                  Container(
-                                    width: 20,
-                                    height: 20,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: Colors.white, width: 1.5),
-                                      color: isSelected
-                                          ? Colors.white
-                                          : Colors.transparent,
+                                  Text(
+                                    'DELETE',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1,
                                     ),
-                                    child: isSelected
-                                        ? const Icon(Icons.check,
-                                            size: 14, color: Colors.black)
-                                        : null,
                                   ),
-                                  const SizedBox(width: 16),
-                                  // Image
-                                  Container(
-                                    width: 60,
-                                    height: 60,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white10,
-                                      borderRadius: BorderRadius.circular(4),
-                                      image: imgUrl.toString().isNotEmpty
-                                          ? DecorationImage(
-                                              image: NetworkImage(imgUrl),
-                                              fit: BoxFit.cover,
-                                            )
+                                  SizedBox(width: 8),
+                                  Icon(Icons.delete_outline,
+                                      color: Colors.white),
+                                ],
+                              ),
+                            ),
+                            child: InkWell(
+                              onTap: () => _toggleItem(id),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  border: Border.all(color: Colors.white24),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Checkbox
+                                    Container(
+                                      width: 20,
+                                      height: 20,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: Colors.white, width: 1.5),
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.transparent,
+                                      ),
+                                      child: isSelected
+                                          ? const Icon(Icons.check,
+                                              size: 14, color: Colors.black)
                                           : null,
                                     ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  // Details
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          name.toString().toUpperCase(),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                            letterSpacing: 1,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _formatPrice(price),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 1,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        // Quantity controls
-                                        Row(
-                                          children: [
-                                            IconButton(
-                                              onPressed: () =>
-                                                  _decrementQuantity(
-                                                      id, quantity),
-                                              icon: const Icon(
-                                                  Icons.remove_circle_outline),
-                                              color: Colors.white70,
-                                              iconSize: 18,
-                                              padding: EdgeInsets.zero,
-                                              constraints:
-                                                  const BoxConstraints(),
+                                    const SizedBox(width: 16),
+                                    // Image
+                                    Container(
+                                      width: 60,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white10,
+                                        borderRadius: BorderRadius.circular(4),
+                                        image: imgUrl.toString().isNotEmpty
+                                            ? DecorationImage(
+                                                image: NetworkImage(imgUrl),
+                                                fit: BoxFit.cover,
+                                              )
+                                            : null,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    // Details
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            name.toString().toUpperCase(),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              letterSpacing: 1,
                                             ),
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 12),
-                                              child: Text(
-                                                '$quantity',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 14,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _formatPrice(price),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 1,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          // Quantity controls
+                                          Row(
+                                            children: [
+                                              IconButton(
+                                                onPressed: () =>
+                                                    _decrementQuantity(
+                                                        id, quantity),
+                                                icon: const Icon(Icons
+                                                    .remove_circle_outline),
+                                                color: Colors.white70,
+                                                iconSize: 18,
+                                                padding: EdgeInsets.zero,
+                                                constraints:
+                                                    const BoxConstraints(),
+                                              ),
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 12),
+                                                child: Text(
+                                                  '$quantity',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            IconButton(
-                                              onPressed: () {
-                                                final stock =
-                                                    product['stock'] ?? 0;
-                                                _incrementQuantity(
-                                                    id, quantity, stock);
-                                              },
-                                              icon: const Icon(
-                                                  Icons.add_circle_outline),
-                                              color: Colors.white70,
-                                              iconSize: 18,
-                                              padding: EdgeInsets.zero,
-                                              constraints:
-                                                  const BoxConstraints(),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
+                                              IconButton(
+                                                onPressed: () {
+                                                  final stock =
+                                                      product['stock'] ?? 0;
+                                                  _incrementQuantity(
+                                                      id, quantity, stock);
+                                                },
+                                                icon: const Icon(
+                                                    Icons.add_circle_outline),
+                                                color: Colors.white70,
+                                                iconSize: 18,
+                                                padding: EdgeInsets.zero,
+                                                constraints:
+                                                    const BoxConstraints(),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           );
