@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:ecommerce_sabi/src/pages/edit_profile_page.dart';
 import 'package:ecommerce_sabi/src/pages/splash_page.dart';
 import 'package:ecommerce_sabi/src/pages/admin/edit_product_page.dart';
+import 'package:ecommerce_sabi/src/pages/admin/edit_product_detail_page.dart';
 import 'package:ecommerce_sabi/src/pages/admin/process_order_page.dart';
 import 'package:ecommerce_sabi/src/pages/admin/admin_review_page.dart';
 import 'package:ecommerce_sabi/src/widgets/admin/admin_review_card.dart';
@@ -173,15 +174,61 @@ class _AdminHomepageState extends ConsumerState<AdminHomepage> {
                       children: products
                           .map((p) => _ProductTile(product: p))
                           .toList(),
-                      onViewAll: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const EditProductPage(),
-                          ),
-                        );
-                      },
-                      showViewAll: !isLoading && products.length >= 2,
+                      actionButton: !isLoading
+                          ? (products.length < 2
+                              ? SizedBox(
+                                  height: 32,
+                                  child: ElevatedButton(
+                                    onPressed: () async {
+                                      final res = await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const EditProductDetailPage(),
+                                        ),
+                                      );
+                                      if (res == true) {
+                                        _fetchDashboardData();
+                                      }
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: Colors.black,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.add, size: 16),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'ADD NEW PRODUCT',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              : _ViewAllButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const EditProductPage(),
+                                      ),
+                                    );
+                                  },
+                                ))
+                          : null,
                     ),
 
                     const SizedBox(height: 32),
@@ -192,15 +239,18 @@ class _AdminHomepageState extends ConsumerState<AdminHomepage> {
                     title: 'NEW ORDER',
                     isLoading: isLoading,
                     children: orders.map((o) => _OrderTile(order: o)).toList(),
-                    onViewAll: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ProcessOrderPage(),
-                        ),
-                      );
-                    },
-                    showViewAll: !isLoading && orders.isNotEmpty,
+                    actionButton: (!isLoading && orders.isNotEmpty)
+                        ? _ViewAllButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ProcessOrderPage(),
+                                ),
+                              );
+                            },
+                          )
+                        : null,
                   ),
 
                   const SizedBox(height: 32),
@@ -215,15 +265,18 @@ class _AdminHomepageState extends ConsumerState<AdminHomepage> {
                               onReplySuccess: _fetchDashboardData,
                             ))
                         .toList(),
-                    onViewAll: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AdminReviewPage(),
-                        ),
-                      );
-                    },
-                    showViewAll: !isLoading && reviews.isNotEmpty,
+                    actionButton: (!isLoading && reviews.isNotEmpty)
+                        ? _ViewAllButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const AdminReviewPage(),
+                                ),
+                              );
+                            },
+                          )
+                        : null,
                   ),
                 ],
               ),
@@ -239,15 +292,13 @@ class _DashboardSection extends StatelessWidget {
   final String title;
   final bool isLoading;
   final List<Widget> children;
-  final VoidCallback onViewAll;
-  final bool showViewAll;
+  final Widget? actionButton;
 
   const _DashboardSection({
     required this.title,
     required this.isLoading,
     required this.children,
-    required this.onViewAll,
-    required this.showViewAll,
+    this.actionButton,
   });
 
   @override
@@ -281,31 +332,41 @@ class _DashboardSection extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 16.0),
                 child: child,
               )),
-        if (showViewAll)
+        if (actionButton != null)
           Align(
             alignment: Alignment.centerRight,
-            child: SizedBox(
-              width: 150,
-              child: OutlinedButton(
-                onPressed: onViewAll,
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.white),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                child: const Text(
-                  'VIEW ALL',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    letterSpacing: 1.3,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
+            child: actionButton,
           ),
       ],
+    );
+  }
+}
+
+class _ViewAllButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _ViewAllButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 150,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Colors.white),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        child: const Text(
+          'VIEW ALL',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            letterSpacing: 1.3,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 }
