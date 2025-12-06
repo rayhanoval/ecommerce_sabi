@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class CustomTextField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final TextInputType keyboardType;
   final int maxLines;
+  final List<TextInputFormatter>? inputFormatters;
 
   const CustomTextField({
     super.key,
@@ -12,6 +14,7 @@ class CustomTextField extends StatelessWidget {
     required this.controller,
     this.keyboardType = TextInputType.text,
     this.maxLines = 1,
+    this.inputFormatters,
   });
 
   @override
@@ -29,6 +32,7 @@ class CustomTextField extends StatelessWidget {
             controller: controller,
             keyboardType: keyboardType,
             maxLines: maxLines,
+            inputFormatters: inputFormatters,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:ecommerce_sabi/src/models/product.dart';
@@ -243,6 +244,7 @@ class _EditProductDetailPageState extends ConsumerState<EditProductDetailPage> {
                       label: 'PRICE',
                       controller: _priceCtrl,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     ),
                     const SizedBox(height: 12),
                     CustomTextField(
@@ -255,6 +257,7 @@ class _EditProductDetailPageState extends ConsumerState<EditProductDetailPage> {
                       label: 'STOCK',
                       controller: _stockCtrl,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     ),
                     const SizedBox(height: 28),
                     Center(
