@@ -1,44 +1,131 @@
+import 'package:ecommerce_sabi/src/pages/admin/admin_homepage.dart';
+import 'package:ecommerce_sabi/src/pages/user/product_list_page.dart';
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
-import 'product_list_page.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthException;
+import '../services/auth_repository.dart';
 import 'register_page.dart';
 
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _emailController = TextEditingController();
+class _LoginPageState extends ConsumerState<LoginPage> {
+  final TextEditingController _emailOrUsernameController =
+      TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
+  bool _obscurePassword = true;
 
-  void _login() async {
-    if (_formKey.currentState?.validate() ?? false) {
-      setState(() => _loading = true);
+  String? _emailError;
+  String? _passwordError;
 
-      bool success = await AuthService.login(
-        _emailController.text,
-        _passwordController.text,
-      );
+  @override
+  void dispose() {
+    _emailOrUsernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  String? _emailOrUsernameValidator(String? v) {
+    if (v == null || v.isEmpty) return 'Email or username is required';
+    return null; // boleh format apapun
+  }
+
+  String? _passwordValidator(String? v) {
+    if (v == null || v.isEmpty) return 'Password is required';
+    if (v.length < 8) return 'Password must be at least 8 characters';
+    return null;
+  }
+
+  Future<void> _login() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    setState(() {
+      _loading = true;
+      _emailError = null;
+      _passwordError = null;
+    });
+
+    final input = _emailOrUsernameController.text.trim();
+    final password = _passwordController.text;
+
+    String emailToLogin = input;
+
+    try {
+      // 🔥 Jika user input username (tidak ada '@')
+      if (!input.contains("@")) {
+        // lookup ke table users
+        final res = await Supabase.instance.client
+            .from('users')
+            .select('email')
+            .eq('username', input)
+            .maybeSingle();
+
+        if (res == null) {
+          setState(() {
+            _loading = false;
+            _emailError = "Username not found";
+          });
+          return;
+        }
+
+        emailToLogin = res['email'];
+      }
+
+      // 🔥 Setelah dapat email → login
+      final success =
+          await ref.read(authRepositoryProvider).login(emailToLogin, password);
 
       setState(() => _loading = false);
 
       if (success) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const ProductListPage(isLoggedIn: true),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Login gagal")),
-        );
+        // Fetch user's role from profile
+        final profile =
+            await ref.read(authRepositoryProvider).getCurrentProfile();
+        final role = profile?['role'] ?? 'user';
+
+        if (!mounted) return;
+
+        if (role == 'user') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProductListPage()),
+          );
+        } else if (role == 'owner' || role == 'admin') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const AdminHomepage()),
+          );
+        } else {
+          // Default fallback
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProductListPage()),
+          );
+        }
       }
+    } on AuthException catch (e) {
+      setState(() {
+        _loading = false;
+
+        if (e.code == 'USER_NOT_FOUND') {
+          _emailError = 'Account not found';
+        } else if (e.code == 'WRONG_CREDENTIALS') {
+          _passwordError = 'Incorrect email/username or password';
+        } else {
+          _passwordError = 'An error occurred, try again';
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _loading = false;
+        _passwordError = 'Unexpected error occurred';
+      });
     }
   }
 
@@ -51,33 +138,29 @@ class _LoginPageState extends State<LoginPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Konten utama
             Center(
               child: SingleChildScrollView(
                 padding: EdgeInsets.symmetric(horizontal: s.width * 0.08),
                 physics: const BouncingScrollPhysics(),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // logo sabi
                     Image.asset(
                       'assets/images/sabi_login.png',
                       height: s.height * 0.07,
                       fit: BoxFit.contain,
                     ),
                     SizedBox(height: s.height * 0.05),
-
-                    // form login
                     Form(
                       key: _formKey,
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // 🔥 FIELD BARU: Email or Username
                           TextFormField(
-                            controller: _emailController,
+                            controller: _emailOrUsernameController,
                             style: const TextStyle(color: Colors.white),
-                            keyboardType: TextInputType.emailAddress,
                             decoration: const InputDecoration(
-                              hintText: 'Email',
+                              hintText: 'Email or Username',
                               hintStyle: TextStyle(color: Colors.white54),
                               enabledBorder: UnderlineInputBorder(
                                 borderSide: BorderSide(color: Colors.white38),
@@ -85,67 +168,76 @@ class _LoginPageState extends State<LoginPage> {
                               focusedBorder: UnderlineInputBorder(
                                 borderSide: BorderSide(color: Colors.white),
                               ),
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 14),
                             ),
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? 'Email wajib diisi'
-                                : null,
+                            validator: _emailOrUsernameValidator,
                           ),
-                          SizedBox(height: s.height * 0.025),
-                          TextFormField(
-                            controller: _passwordController,
-                            style: const TextStyle(color: Colors.white),
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              hintText: 'Password',
-                              hintStyle: TextStyle(color: Colors.white54),
-                              enabledBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(color: Colors.white38),
-                              ),
-                              focusedBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(color: Colors.white),
-                              ),
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? 'Password wajib diisi'
-                                : null,
-                          ),
-                          SizedBox(height: s.height * 0.02),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {},
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: const Size(40, 20),
-                                tapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                              ),
+
+                          if (_emailError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
                               child: Text(
-                                'Forgot password?',
-                                style: TextStyle(
-                                  color: Colors.white60,
-                                  fontSize: s.width * 0.034,
+                                _emailError!,
+                                style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 13,
                                 ),
                               ),
                             ),
+
+                          SizedBox(height: s.height * 0.025),
+
+                          TextFormField(
+                            controller: _passwordController,
+                            style: const TextStyle(color: Colors.white),
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              hintText: 'Password',
+                              hintStyle: const TextStyle(color: Colors.white54),
+                              enabledBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.white38),
+                              ),
+                              focusedBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.white),
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: Colors.white54,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
+                            ),
+                            validator: _passwordValidator,
                           ),
-                          SizedBox(height: s.height * 0.04),
+
+                          if (_passwordError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                _passwordError!,
+                                style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+
+                          SizedBox(height: s.height * 0.02),
                         ],
                       ),
                     ),
-
-                    // tombol login
                     _loading
                         ? SizedBox(
                             height: s.height * 0.08,
                             child: const Center(
-                              child:
-                                  CircularProgressIndicator(color: Colors.white),
-                            ),
+                                child: CircularProgressIndicator(
+                                    color: Colors.white)),
                           )
                         : GestureDetector(
                             onTap: _login,
@@ -155,10 +247,7 @@ class _LoginPageState extends State<LoginPage> {
                               fit: BoxFit.contain,
                             ),
                           ),
-
                     SizedBox(height: s.height * 0.03),
-
-                    // teks "Don't have an account? Sign up"
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -170,13 +259,11 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const RegisterPage()),
-                            );
-                          },
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const RegisterPage()),
+                          ),
                           child: Text(
                             "Sign up",
                             style: TextStyle(
@@ -191,17 +278,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ],
                 ),
-              ),
-            ),
-
-            // Tombol back di pojok kiri atas
-            Positioned(
-              top: s.height * 0.02,
-              left: s.width * 0.02,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new,
-                    color: Colors.white, size: 22),
-                onPressed: () => Navigator.pop(context),
               ),
             ),
           ],

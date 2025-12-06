@@ -1,264 +1,300 @@
 import 'package:flutter/material.dart';
-import '../pages/login_page.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthException;
+import '../services/auth_repository.dart';
 
-class RegisterPage extends StatefulWidget {
+class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
 
   @override
-  State<RegisterPage> createState() => _RegisterPageState();
+  ConsumerState<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegisterPageState extends State<RegisterPage> {
-  final TextEditingController _nameController = TextEditingController();
+class _RegisterPageState extends ConsumerState<RegisterPage> {
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmController = TextEditingController();
+
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
   bool _obscurePassword = true;
-  bool _obscureConfirm = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
   }
 
-  void _register() async {
+  // VALIDASI
+  String? _usernameValidator(String? v) =>
+      (v == null || v.isEmpty) ? 'Username is required' : null;
+
+  String? _emailValidator(String? v) {
+    if (v == null || v.isEmpty) return 'Email is required';
+    final emailRegex = RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$");
+    if (!emailRegex.hasMatch(v)) return 'Invalid email format';
+    return null;
+  }
+
+  String? _passwordValidator(String? v) {
+    if (v == null || v.isEmpty) return 'Password is required';
+    if (v.length < 8) return 'Password must be at least 8 characters';
+    return null;
+  }
+
+  String? _confirmValidator(String? v) {
+    if (v == null || v.isEmpty) return 'Confirm your password';
+    if (v != _passwordController.text) return 'Passwords do not match';
+    return null;
+  }
+
+  Future<void> _register() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 800)); // simulasi request
-    setState(() => _loading = false);
 
-    // Setelah sukses registrasi, navigasi ke ProductListPage
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginPage()),
-    );
+    final username = _usernameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    try {
+      final success = await ref.read(authRepositoryProvider).register(
+            email,
+            password,
+            username: username, // PENTING: masuk ke kolom username
+          );
+
+      setState(() => _loading = false);
+
+      if (success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Verification link sent to your email."),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.greenAccent,
+            ),
+          );
+
+          await Future.delayed(const Duration(seconds: 2));
+          if (mounted) Navigator.of(context).pop(true);
+        }
+      }
+    } on AuthException catch (e) {
+      setState(() => _loading = false);
+
+      String errorMessage;
+      if (e.code == 'EMAIL_TAKEN') {
+        errorMessage = 'Email is already registered';
+      } else if (e.code == 'USERNAME_TAKEN') {
+        errorMessage = 'Username is already taken';
+      } else {
+        errorMessage = 'Registration failed — ${e.message}';
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _loading = false);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Registration failed — please try again."),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final s = MediaQuery.of(context).size;
-    final horizontalPadding = s.width * 0.08;
-    final logoHeight = s.height * 0.07;
-    final fieldGap = s.height * 0.025;
-    final buttonHeight = s.height * 0.08;
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Logo
-                Image.asset(
-                  'assets/images/sabi_login.png',
-                  height: logoHeight,
-                  fit: BoxFit.contain,
-                ),
-
-                SizedBox(height: s.height * 0.05),
-
-                // Form registrasi
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      // Full Name
-                      TextFormField(
-                        controller: _nameController,
-                        style: const TextStyle(color: Colors.white),
-                        textCapitalization: TextCapitalization.words,
-                        decoration: const InputDecoration(
-                          hintText: 'Full Name',
-                          hintStyle: TextStyle(color: Colors.white54),
-                          enabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white38),
-                          ),
-                          focusedBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        validator: (v) => (v == null || v.isEmpty)
-                            ? 'Nama wajib diisi'
-                            : null,
-                      ),
-
-                      SizedBox(height: fieldGap),
-
-                      // Email
-                      TextFormField(
-                        controller: _emailController,
-                        style: const TextStyle(color: Colors.white),
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          hintText: 'Email',
-                          hintStyle: TextStyle(color: Colors.white54),
-                          enabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white38),
-                          ),
-                          focusedBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        validator: (v) => (v == null || v.isEmpty)
-                            ? 'Email wajib diisi'
-                            : null,
-                      ),
-
-                      SizedBox(height: fieldGap),
-
-                      // Password
-                      TextFormField(
-                        controller: _passwordController,
-                        style: const TextStyle(color: Colors.white),
-                        obscureText: _obscurePassword,
-                        decoration: InputDecoration(
-                          hintText: 'Password',
-                          hintStyle: const TextStyle(color: Colors.white54),
-                          enabledBorder: const UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white38),
-                          ),
-                          focusedBorder: const UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white),
-                          ),
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 14),
-                          suffixIcon: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                              color: Colors.white54,
-                            ),
-                            onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword),
-                          ),
-                        ),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) {
-                            return 'Password wajib diisi';
-                          }
-                          if (v.length < 6) {
-                            return 'Password minimal 6 karakter';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      SizedBox(height: fieldGap),
-
-                      // Confirm Password
-                      TextFormField(
-                        controller: _confirmController,
-                        style: const TextStyle(color: Colors.white),
-                        obscureText: _obscureConfirm,
-                        decoration: InputDecoration(
-                          hintText: 'Confirm Password',
-                          hintStyle: const TextStyle(color: Colors.white54),
-                          enabledBorder: const UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white38),
-                          ),
-                          focusedBorder: const UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white),
-                          ),
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 14),
-                          suffixIcon: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: Icon(
-                              _obscureConfirm
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                              color: Colors.white54,
-                            ),
-                            onPressed: () => setState(
-                                () => _obscureConfirm = !_obscureConfirm),
-                          ),
-                        ),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) {
-                            return 'Konfirmasi password wajib diisi';
-                          }
-                          if (v != _passwordController.text) {
-                            return 'Password tidak cocok';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      SizedBox(height: s.height * 0.04),
-                    ],
-                  ),
-                ),
-
-                // Tombol register
-                _loading
-                    ? SizedBox(
-                        height: buttonHeight,
-                        child: const Center(
-                          child: CircularProgressIndicator(color: Colors.white),
-                        ),
-                      )
-                    : GestureDetector(
-                        onTap: _register,
-                        child: Image.asset(
-                          'assets/images/register_button.png',
-                          height: buttonHeight,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-
-                SizedBox(height: s.height * 0.03),
-
-                // Tambahan: teks login balik ke LoginPage
-                // Teks "Already have an account? Login"
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
+          children: [
+            Center(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: s.width * 0.08),
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      "Already have an account? ",
-                      style: TextStyle(
-                        color: Colors.white60,
-                        fontSize: s.width * 0.035,
+                    Image.asset(
+                      'assets/images/sabi_login.png',
+                      height: s.height * 0.07,
+                      fit: BoxFit.contain,
+                    ),
+                    SizedBox(height: s.height * 0.05),
+                    Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          // USERNAME FIELD
+                          TextFormField(
+                            controller: _usernameController,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: const InputDecoration(
+                              hintText: 'Username',
+                              hintStyle: TextStyle(color: Colors.white54),
+                              enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.white38),
+                              ),
+                              focusedBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.white),
+                              ),
+                              contentPadding:
+                                  EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            validator: _usernameValidator,
+                          ),
+                          SizedBox(height: s.height * 0.025),
+
+                          // EMAIL
+                          TextFormField(
+                            controller: _emailController,
+                            style: const TextStyle(color: Colors.white),
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              hintText: 'Email',
+                              hintStyle: TextStyle(color: Colors.white54),
+                              enabledBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.white38),
+                              ),
+                              focusedBorder: UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.white),
+                              ),
+                              contentPadding:
+                                  EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            validator: _emailValidator,
+                          ),
+                          SizedBox(height: s.height * 0.025),
+
+                          // PASSWORD
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
+                              hintText: 'Password',
+                              hintStyle: const TextStyle(color: Colors.white54),
+                              enabledBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.white38),
+                              ),
+                              focusedBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.white),
+                              ),
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: Colors.white54,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
+                            ),
+                            validator: _passwordValidator,
+                          ),
+                          SizedBox(height: s.height * 0.025),
+
+                          // CONFIRM PASSWORD
+                          TextFormField(
+                            controller: _confirmController,
+                            obscureText: _obscureConfirmPassword,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
+                              hintText: 'Confirm Password',
+                              hintStyle: const TextStyle(color: Colors.white54),
+                              enabledBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.white38),
+                              ),
+                              focusedBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(color: Colors.white),
+                              ),
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirmPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: Colors.white54,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscureConfirmPassword =
+                                        !_obscureConfirmPassword;
+                                  });
+                                },
+                              ),
+                            ),
+                            validator: _confirmValidator,
+                          ),
+                          SizedBox(height: s.height * 0.04),
+                        ],
                       ),
                     ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LoginPage()),
-                        );
-                      },
-                      child: Text(
-                        "Login",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: s.width * 0.035,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
+                    _loading
+                        ? SizedBox(
+                            height: s.height * 0.08,
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            ),
+                          )
+                        : GestureDetector(
+                            onTap: _register,
+                            child: Image.asset(
+                              'assets/images/register_button.png',
+                              height: s.height * 0.08,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
                   ],
                 ),
-
-                SizedBox(height: s.height * 0.03),
-              ],
+              ),
             ),
-          ),
+
+            // BACK BUTTON
+            Positioned(
+              top: s.height * 0.02,
+              left: s.width * 0.02,
+              child: IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_ios_new,
+                  color: Colors.white,
+                  size: 22,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
         ),
       ),
     );

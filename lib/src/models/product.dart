@@ -9,6 +9,8 @@ class Product {
   final String imgUrl;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int ratingCount;
+  final double ratingAvg;
 
   Product({
     required this.id,
@@ -21,22 +23,41 @@ class Product {
     required this.imgUrl,
     required this.createdAt,
     required this.updatedAt,
+    required this.ratingCount,
+    required this.ratingAvg,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json['id'],
-      name: json['name'],
-      price: json['price'].toDouble(),
-      description: json['description'],
-      stock: json['stock'],
-      rating: json['rating'].toDouble(),
-      isActive: json['is_active'],
-      imgUrl: json['img_url'],
-      createdAt:
-          DateTime.fromMillisecondsSinceEpoch(int.parse(json['created_at'])),
-      updatedAt:
-          DateTime.fromMillisecondsSinceEpoch(int.parse(json['updated_at'])),
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      price: double.tryParse(json['price'].toString()) ?? 0.0,
+      description: json['description'] ?? '',
+      stock: json['stock'] ?? 0,
+      rating: double.tryParse(json['rating'].toString()) ?? 0.0,
+      isActive: json['is_active'] ?? false,
+      imgUrl: json['img_url'] ?? '',
+      createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
+      ratingCount: json['rating_count'] ?? 0,
+      ratingAvg: double.tryParse(json['rating_avg'].toString()) ?? 0.0,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'price': price,
+      'description': description,
+      'stock': stock,
+      'rating': rating,
+      'is_active': isActive,
+      'img_url': imgUrl,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+      'rating_count': ratingCount,
+      'rating_avg': ratingAvg,
+    };
   }
 }
