@@ -94,26 +94,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
         {
           'products': widget.product!.toJson(),
           'quantity': _quantity,
-          // 'id' might be missing if it's direct buy, but we don't need cart id here for logic except deletion
         }
       ];
     } else {
       return; // Should not happen
     }
-
-    // Calculate total
-    double totalBasePrice = 0;
-    for (var item in itemsToCheckout) {
-      final p = item['products'];
-      final price = (p['price'] is num)
-          ? (p['price'] as num).toDouble()
-          : double.tryParse(p['price']?.toString() ?? '0') ?? 0.0;
-      final qty = item['quantity'] as int;
-      totalBasePrice += (price * qty);
-    }
-
-    final shippingFee = _shippingMethod == "Regular" ? 10000 : 20000;
-    final totalPrice = totalBasePrice + shippingFee;
 
     final name = _nameController.text.trim();
     final address = _addressController.text.trim();
@@ -128,7 +113,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Validate stock for all items
+      // 1. Validate stock for ALL items first
       for (var item in itemsToCheckout) {
         final p = item['products'];
         final productId = p['id'].toString();
@@ -154,47 +139,56 @@ class _CheckoutPageState extends State<CheckoutPage> {
         }
       }
 
-      // insert order
-      final orderPayload = {
-        'user_id': user.id,
-        'total_price': totalPrice,
-        'shipping_address': address,
-        'payment_method': _paymentMethod,
-        'status': 'pending',
-        'created_at': DateTime.now().toUtc().toIso8601String(),
-      };
+      // 2. Create separate orders for each item
+      final shippingFeeTotal = _shippingMethod == "Regular" ? 10000 : 20000;
+      bool isFirstOrder = true;
 
-      final insertOrder =
-          await supabase.from('orders').insert(orderPayload).select();
-      final orderMap = _normalizeFirstRow(insertOrder);
-      if (orderMap == null || orderMap['id'] == null) {
-        throw Exception('Gagal membuat order');
-      }
-      final orderId = orderMap['id'].toString();
-
-      // insert order items and update stock
       for (var item in itemsToCheckout) {
         final p = item['products'];
         final productId = p['id'].toString();
         final qty = item['quantity'] as int;
+
         final price = (p['price'] is num)
             ? (p['price'] as num).toDouble()
             : double.tryParse(p['price']?.toString() ?? '0') ?? 0.0;
 
+        // Apply shipping logic: only on the first order
+        final currentShipping = isFirstOrder ? shippingFeeTotal : 0;
+        final subTotal = price * qty;
+        final orderTotal = subTotal + currentShipping;
+
+        // Create ORDER
+        final orderPayload = {
+          'user_id': user.id,
+          'total_price': orderTotal,
+          'shipping_address': address,
+          'payment_method': _paymentMethod,
+          'status': 'pending',
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        };
+
+        final insertOrder =
+            await supabase.from('orders').insert(orderPayload).select();
+        final orderMap = _normalizeFirstRow(insertOrder);
+
+        if (orderMap == null || orderMap['id'] == null) {
+          throw Exception('Gagal membuat order untuk ${p['name']}');
+        }
+        final orderId = orderMap['id'].toString();
+
+        // Create ORDER ITEM
         await supabase.from('order_items').insert({
           'order_id': orderId,
           'product_id': productId,
           'quantity': qty,
           'price': price,
-          'subtotal': price * qty,
+          'subtotal': subTotal,
           'created_at': DateTime.now().toUtc().toIso8601String(),
         });
 
-        // Decrement stock (fetching fresh stock again to be safe or using rpc would be better, but simple update here)
-        // We already checked stock, but race condition possible. For now simple update.
-        // To be safer, we could use an RPC or re-read.
-        // Let's re-read to be slightly safer or just decrement from what we checked.
-        // We'll just decrement.
+        // Update Stock
+        // (Re-fetching is safer but for simplicity & speed we use the logic we have)
+        // We know we checked it above.
         final productResp = await supabase
             .from('products')
             .select('stock')
@@ -206,9 +200,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
           'stock': currentStock - qty,
           'updated_at': DateTime.now().toUtc().toIso8601String()
         }).eq('id', productId);
+
+        isFirstOrder = false;
       }
 
-      // If from cart, delete items from cart
+      // 3. If from cart, delete items from cart
       if (widget.cartItems != null && widget.cartItems!.isNotEmpty) {
         final cartIds = widget.cartItems!.map((e) => e['id']).toList();
         await supabase.from('carts').delete().inFilter('id', cartIds);
@@ -225,6 +221,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
     } catch (e) {
       final msg = e is PostgrestException ? e.message : e.toString();
+      debugPrint('Checkout Error: $msg');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Gagal membuat order: $msg')));
