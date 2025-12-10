@@ -40,7 +40,10 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => VerifyOtpPage(email: _emailController.text.trim()),
+          builder: (_) => VerifyOtpPage(
+            email: _emailController.text.trim(),
+            type: VerificationType.recovery,
+          ),
         ),
       );
     } catch (e) {
