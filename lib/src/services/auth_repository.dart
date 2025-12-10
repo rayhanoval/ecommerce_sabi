@@ -13,6 +13,9 @@ abstract class AuthRepository {
   bool isLoggedIn();
   Future<Map<String, dynamic>?> getCurrentProfile();
   Future<bool> updateProfile(Map<String, dynamic> data);
+  Future<void> resetPassword(String email);
+  Future<void> updatePassword(String newPassword);
+  Future<bool> verifyRecoveryOtp(String email, String token);
 }
 
 class AuthException implements Exception {
@@ -145,6 +148,40 @@ class SupabaseAuthRepository implements AuthRepository {
     } catch (e) {
       // debugPrint('updateProfile error: $e');
       return false;
+    }
+  }
+
+  @override
+  Future<void> resetPassword(String email) async {
+    try {
+      await _client.auth.resetPasswordForEmail(email);
+    } catch (e) {
+      throw AuthException(
+          'RESET_PASSWORD_FAILED', 'Gagal mengirim email reset password');
+    }
+  }
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    try {
+      await _client.auth.updateUser(UserAttributes(password: newPassword));
+    } catch (e) {
+      throw AuthException('UPDATE_PASSWORD_FAILED', 'Gagal update password');
+    }
+  }
+
+  @override
+  Future<bool> verifyRecoveryOtp(String email, String token) async {
+    try {
+      final res = await _client.auth.verifyOTP(
+        email: email,
+        token: token,
+        type: OtpType.recovery,
+      );
+      return res.session != null;
+    } catch (e) {
+      throw AuthException(
+          'VERIFY_OTP_FAILED', 'Kode OTP salah atau kadaluarsa');
     }
   }
 }

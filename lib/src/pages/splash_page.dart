@@ -32,7 +32,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
       if (event == AuthChangeEvent.signedIn) {
         setState(() => isLoggedIn = true);
       } else if (event == AuthChangeEvent.signedOut) {
-        setState(() => isLoggedIn = false);
+        if (mounted) setState(() => isLoggedIn = false);
       }
     });
   }
@@ -94,7 +94,6 @@ class _SplashPageState extends ConsumerState<SplashPage> {
                   ),
                 ),
 
-                // Spacer dorong tombol ke bawah tapi lebih pendek supaya Start Exploring tidak terlalu rendah
                 const Spacer(flex: 1),
 
                 // Tombol LOGIN/SIGNUP + Start Exploring
@@ -127,11 +126,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
                           ),
                         ),
                       ),
-
-                    if (!isLoggedIn)
-                      SizedBox(height: 2), // tetap mepet LOGIN/SIGNUP
-
-                    // Tombol Start Exploring → selalu ada, naik sedikit ke atas
+                    if (!isLoggedIn) const SizedBox(height: 2),
                     IconButton(
                       icon: Image.asset(
                         'assets/images/start_exploring_button.png',
