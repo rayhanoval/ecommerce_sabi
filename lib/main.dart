@@ -2,6 +2,7 @@ import 'package:ecommerce_sabi/src/pages/splash_page.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'src/core/theme.dart';
+import 'src/widgets/session_guard.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -23,6 +24,7 @@ class MyApp extends StatelessWidget {
       title: 'SABI',
       theme: AppTheme.dark(),
       home: const SplashPage(),
+      builder: (context, child) => SessionGuard(child: child!),
     );
   }
 }

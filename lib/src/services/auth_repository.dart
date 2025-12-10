@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return SupabaseAuthRepository(Supabase.instance.client);
@@ -32,6 +34,8 @@ class AuthException implements Exception {
 
 class SupabaseAuthRepository implements AuthRepository {
   final SupabaseClient _client;
+  final _storage = const FlutterSecureStorage();
+  final _uuid = const Uuid();
 
   SupabaseAuthRepository(this._client);
 
@@ -93,6 +97,20 @@ class SupabaseAuthRepository implements AuthRepository {
         email: email,
         password: password,
       );
+
+      if (res.session != null && res.user != null) {
+        // Generate, Store, and Update Session ID
+        final sessionId = _uuid.v4();
+        await _storage.write(key: 'session_id', value: sessionId);
+
+        try {
+          await _client.from('users').update({
+            'active_session_id': sessionId,
+            'updated_at': DateTime.now().toIso8601String(),
+          }).eq('id', res.user!.id);
+        } catch (_) {}
+      }
+
       return res.session != null;
     } on AuthApiException catch (e) {
       final msg = e.message.toLowerCase();
@@ -111,6 +129,7 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<void> logout() async {
     await _client.auth.signOut();
+    await _storage.delete(key: 'session_id');
   }
 
   @override
@@ -193,11 +212,15 @@ class SupabaseAuthRepository implements AuthRepository {
       // Jika verifikasi sukses dan kita punya data user, baru insert ke DB public.users
       if (session != null && user != null && username != null) {
         try {
+          final sessionId = _uuid.v4();
+          await _storage.write(key: 'session_id', value: sessionId);
+
           await _client.from('users').insert({
             'id': user.id,
             'email': email,
             'username': username,
             'avatar_url': null,
+            'active_session_id': sessionId,
             'created_at': DateTime.now().toIso8601String(),
             'updated_at': DateTime.now().toIso8601String(),
           });
