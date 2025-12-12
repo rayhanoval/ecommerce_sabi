@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "471950980952",
+    "project_id": "sabi-cde2b",
+    "storage_bucket": "sabi-cde2b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:471950980952:android:51b9d820dda98145d2572d",
+        "android_client_info": {
+          "package_name": "com.example.ecommerce_sabi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAcEeyQ0zYV0QD9pyt5YDccV_dXBOy-4Tw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

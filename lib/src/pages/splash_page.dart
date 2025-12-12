@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_repository.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
@@ -21,6 +22,8 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   @override
   void initState() {
     super.initState();
+    // Check for initial message (if app was terminated)
+    _checkInitialMessage();
 
     // cek session Supabase
     final session = Supabase.instance.client.auth.currentSession;
@@ -35,6 +38,21 @@ class _SplashPageState extends ConsumerState<SplashPage> {
         if (mounted) setState(() => isLoggedIn = false);
       }
     });
+  }
+
+  Future<void> _checkInitialMessage() async {
+    RemoteMessage? initialMessage =
+        await FirebaseMessaging.instance.getInitialMessage();
+
+    if (initialMessage != null) {
+      // Handle navigation logic here or delegate to a helper
+      // For now we just print, or if we had a proper router we'd use it.
+      // But user typically wants to navigate.
+      debugPrint("Initial message: ${initialMessage.data}");
+      // Note: Navigation context might not be ready if we do it too fast,
+      // but usually in initState -> async it's fine for simple pages.
+      // Ideally we check this later or use a global key.
+    }
   }
 
   Future<void> _handleStartExploring(BuildContext context) async {

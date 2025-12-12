@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/notification_service.dart';
 import '../services/auth_repository.dart';
 import '../pages/login_page.dart';
 
@@ -26,6 +27,7 @@ class _SessionGuardState extends ConsumerState<SessionGuard> {
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.event == AuthChangeEvent.signedIn) {
         _startListening();
+        NotificationService().uploadToken(null);
       } else if (data.event == AuthChangeEvent.signedOut) {
         _stopListening();
       }
@@ -57,21 +59,36 @@ class _SessionGuardState extends ConsumerState<SessionGuard> {
               value: user.id,
             ),
             callback: (payload) async {
+              debugPrint(
+                  'SessionGuard: Update received! Payload: ${payload.toString()}');
               final newRecord = payload.newRecord;
-              if (newRecord.isEmpty) return;
+              if (newRecord.isEmpty) {
+                debugPrint('SessionGuard: newRecord is empty');
+                return;
+              }
 
               final serverSessionId = newRecord['active_session_id'];
               final localSessionId = await _storage.read(key: 'session_id');
 
+              debugPrint('SessionGuard: Server Session ID: $serverSessionId');
+              debugPrint('SessionGuard: Local Session ID: $localSessionId');
+
               if (serverSessionId != null &&
                   localSessionId != null &&
                   serverSessionId != localSessionId) {
+                debugPrint(
+                    'SessionGuard: Session mismatch! Triggering logout dialog.');
                 if (mounted && !_isDialogShowing) {
                   _showSessionExpiredDialog();
                 }
+              } else {
+                debugPrint('SessionGuard: Session IDs match or valid.');
               }
             })
-        .subscribe();
+        .subscribe((status, error) {
+      debugPrint('SessionGuard: Subscription Status: $status');
+      if (error != null) debugPrint('SessionGuard: Subscription Error: $error');
+    });
   }
 
   void _showSessionExpiredDialog() {
