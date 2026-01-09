@@ -59,6 +59,9 @@ Deno.serve(async (req: Request) => {
       } else if (status === "completed") {
         title = "Pesanan Selesai!";
         body = `Pesanan #${record.id} telah selesai. Terima kasih telah berbelanja!`;
+      } else if (status === "processing") {
+        title = "Pesanan Diproses";
+        body = `Pesanan #${record.id} sedang disiapkan oleh penjual.`;
       }
 
       data = {

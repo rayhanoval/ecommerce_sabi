@@ -137,12 +137,6 @@ class _UserOrderPageState extends State<UserOrderPage> {
             .from('orders')
             .update({'status': 'completed'}).eq('id', orderId);
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Order marked as completed')),
-          );
-        }
-
         // Navigate to review
         _navigateToReview(order);
       } catch (e) {
