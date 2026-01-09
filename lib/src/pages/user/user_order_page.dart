@@ -137,12 +137,6 @@ class _UserOrderPageState extends State<UserOrderPage> {
             .from('orders')
             .update({'status': 'completed'}).eq('id', orderId);
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Order marked as completed')),
-          );
-        }
-
         // Navigate to review
         _navigateToReview(order);
       } catch (e) {
@@ -341,18 +335,20 @@ class _OrderItem extends StatelessWidget {
             onPressed: isStatusEnabled(status) ? onStatusTap : null,
             style: OutlinedButton.styleFrom(
               side: BorderSide(
-                color: isStatusEnabled(status) ? Colors.white : Colors.white38,
+                color: isStatusEnabled(status) ? Colors.white : Colors.white,
+                width: isStatusEnabled(status) ? 1 : 1,
               ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
-              backgroundColor: Colors.transparent,
+              backgroundColor:
+                  isStatusEnabled(status) ? Colors.white : Colors.transparent,
             ),
             child: Text(
               getStatusText(status),
               style: TextStyle(
-                color: isStatusEnabled(status) ? Colors.white : Colors.white38,
+                color: isStatusEnabled(status) ? Colors.black : Colors.white,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthException;
 import '../services/auth_repository.dart';
+import 'verify_otp_page.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -75,14 +76,22 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Verification link sent to your email."),
+              content: Text("Account created! Please verify your email."),
               behavior: SnackBarBehavior.floating,
               backgroundColor: Colors.greenAccent,
             ),
           );
 
-          await Future.delayed(const Duration(seconds: 2));
-          if (mounted) Navigator.of(context).pop(true);
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => VerifyOtpPage(
+                email: email,
+                username: username, // Pass username explicitly
+                type: VerificationType.signup,
+              ),
+            ),
+          );
         }
       }
     } on AuthException catch (e) {
